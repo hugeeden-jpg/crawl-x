@@ -4,10 +4,9 @@
 #   "mcp[cli]>=1.0.0",
 #   "requests>=2.31.0",
 #   "beautifulsoup4>=4.12.0",
+#   "scrapling[all]>=0.4.2",
 # ]
 # ///
-# NOTE: scrapling installed globally via: uv tool install "scrapling[all]>=0.4.2"
-# Run with: /Users/eden/.local/share/uv/tools/scrapling/bin/python server.py
 """
 Scrape MCP Server
 OpenInsider (insider trades) - requests + BeautifulSoup via http://
@@ -264,87 +263,80 @@ async def get_fed_rate_probabilities() -> str:
     Returns next FOMC meeting date and probability distribution across rate outcomes
     """
     try:
-        TARGET_URL = "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html"
+        CME_URL = "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html"
         captured = {}
 
-        def capture_fedwatch(page: Page):
-            def on_response(response):
-                url_r = response.url
-                if "cmegroup.com" in url_r and any(k in url_r for k in ["fedwatch", "probabilities", "fomc"]):
-                    try:
-                        body = response.json()
-                        if isinstance(body, dict) and ("0" in str(body) or "probability" in str(body).lower()):
-                            captured["probs"] = body
-                    except Exception:
-                        pass
+        TABLE_SEL = "#MainContent_pnlContainer > div.ui-widget-info > div > div > div > div > div.margin-bottom-sm > table"
 
-                # Also capture any XHR with rate probability data
-                if "cmegroup.com/apps/interest-rate-probabilities" in url_r or (
-                    "cmegroup.com" in url_r and "fedwatch" in url_r.lower() and response.status == 200
-                ):
-                    try:
-                        text = response.text()
-                        if text and len(text) > 100:
-                            captured.setdefault("raw_responses", []).append({
-                                "url": url_r,
-                                "text": text[:3000],
-                            })
-                    except Exception:
-                        pass
+        def fetch_fedwatch(page: Page):
+            # Wait for the QuikStrike frame to navigate (event-driven, no fixed sleep)
+            try:
+                page.wait_for_event(
+                    "framenavigated",
+                    predicate=lambda f: "quikstrike" in f.url,
+                    timeout=30000,
+                )
+            except Exception:
+                pass
 
-            page.on("response", on_response)
-            page.wait_for_timeout(6000)
+            # Find the QuikStrike child frame, wait for the exact probability table
+            for frame in page.frames:
+                if "quikstrike" not in frame.url:
+                    continue
+                try:
+                    frame.wait_for_selector(TABLE_SEL, timeout=20000)
+                    captured["html"] = frame.inner_html("#MainContent_pnlContainer")
+                except Exception:
+                    captured["html"] = frame.content()
+                return
 
-        def _fetch_fedwatch():
+        def _fetch():
             StealthyFetcher.fetch(
-                TARGET_URL,
-                network_idle=True,
-                page_action=capture_fedwatch,
+                CME_URL,
+                network_idle=False,
+                page_action=fetch_fedwatch,
                 timeout=60000,
                 headless=True,
             )
 
-        await asyncio.to_thread(_fetch_fedwatch)
+        await asyncio.to_thread(_fetch)
 
+        html = captured.get("html", "")
+        if not html:
+            return "Could not load QuikStrike frame from CME FedWatch page"
+
+        soup = BeautifulSoup(html, "html.parser")
         lines = ["=== CME FedWatch — Fed Rate Probabilities ===\n"]
 
-        if captured.get("probs"):
-            data = captured["probs"]
-            lines.append("Probability data captured from CME API:")
-            lines.append(json.dumps(data, indent=2)[:3000])
-        elif captured.get("raw_responses"):
-            lines.append("Raw API responses captured:")
-            for resp in captured["raw_responses"][:3]:
-                lines.append(f"\n[{resp['url'][:80]}]")
-                lines.append(resp["text"][:1000])
-        else:
-            # Parse from rendered page HTML
-            page = await asyncio.to_thread(
-                StealthyFetcher.fetch,
-                TARGET_URL,
-                network_idle=True,
-                timeout=60000,
-                headless=True,
-                wait=3000,
-            )
+        # Use the known selector path; strip the leading "#MainContent_pnlContainer >"
+        # since we already have inner_html of #MainContent_pnlContainer
+        tables = soup.select("div.ui-widget-info div.margin-bottom-sm table")
+        if not tables:
+            # fallback: any table in the container
+            tables = soup.find_all("table")
+        if not tables:
+            lines.append(soup.get_text(separator=" ", strip=True)[:3000])
+            return "\n".join(lines)
 
-            # Try to find probability table
-            tables = page.css("table")
-            if tables:
-                lines.append("Probability tables from page HTML:\n")
-                for table in tables[:3]:
-                    rows = table.css("tr")
-                    for row in rows[:10]:
-                        cells = row.css("td,th")
-                        row_text = " | ".join(c.get_all_text(strip=True) for c in cells)
-                        if row_text.strip():
-                            lines.append(row_text)
-                    lines.append("")
-            else:
-                # Extract any percentage-like content
-                text = page.get_all_text(strip=True)[:5000]
-                lines.append("Page text content (partial):")
-                lines.append(text)
+        for table in tables:
+            rows = table.find_all("tr")
+            if not rows:
+                continue
+            parsed = []
+            for row in rows:
+                cells = row.find_all(["th", "td"])
+                texts = [c.get_text(strip=True) for c in cells]
+                if any(texts):
+                    parsed.append(texts)
+            if not parsed:
+                continue
+            col_count = max(len(r) for r in parsed)
+            widths = [max(len(r[i]) if i < len(r) else 0 for r in parsed) for i in range(col_count)]
+            for i, row in enumerate(parsed):
+                lines.append("  ".join(cell.ljust(widths[j]) for j, cell in enumerate(row)))
+                if i == 0:
+                    lines.append("-" * (sum(widths) + 2 * (col_count - 1)))
+            lines.append("")
 
         return "\n".join(lines)
     except Exception as e:

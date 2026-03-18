@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# dependencies = [
+#   "mcp[cli]>=1.0.0",
+#   "openai>=1.0.0",
+# ]
+# ///
 """
 Grok MCP Server - 使用 Grok API 获取 X/Twitter 资讯和市场情绪
 """
