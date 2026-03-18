@@ -263,34 +263,50 @@ async def get_fed_rate_probabilities() -> str:
     Returns next FOMC meeting date and probability distribution across rate outcomes
     """
     try:
+        import time as _time, sys as _sys
+        t0 = _time.time()
+        def _log(msg): print(f"[fedwatch +{_time.time()-t0:.1f}s] {msg}", file=_sys.stderr, flush=True)
+
         CME_URL = "https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html"
+        TABLE_SEL = "#MainContent_pnlContainer > div.ui-widget-info > div > div > div > div > div.margin-bottom-sm > table"
         captured = {}
 
-        TABLE_SEL = "#MainContent_pnlContainer > div.ui-widget-info > div > div > div > div > div.margin-bottom-sm > table"
-
         def fetch_fedwatch(page: Page):
-            # Wait for the QuikStrike frame to navigate (event-driven, no fixed sleep)
+            _log("page_action entered")
+
+            def _extract(frame):
+                _log(f"QuikStrike frame: {frame.url[:80]}")
+                try:
+                    frame.wait_for_selector(TABLE_SEL, timeout=20000)
+                    _log("table selector matched")
+                    captured["html"] = frame.inner_html("#MainContent_pnlContainer")
+                    _log(f"HTML captured ({len(captured['html'])} chars)")
+                except Exception as e:
+                    _log(f"selector timed out ({e}), using full frame content")
+                    captured["html"] = frame.content()
+
+            # iframe may already be loaded when page_action fires — check first
+            qs = next((f for f in page.frames if "quikstrike" in f.url), None)
+            if qs:
+                _log("frame already present")
+                _extract(qs)
+                return
+
+            # not yet loaded — wait for the navigation event
+            _log("waiting for framenavigated")
             try:
-                page.wait_for_event(
+                frame = page.wait_for_event(
                     "framenavigated",
                     predicate=lambda f: "quikstrike" in f.url,
                     timeout=30000,
                 )
+                _log("framenavigated fired")
+                _extract(frame)
             except Exception:
-                pass
-
-            # Find the QuikStrike child frame, wait for the exact probability table
-            for frame in page.frames:
-                if "quikstrike" not in frame.url:
-                    continue
-                try:
-                    frame.wait_for_selector(TABLE_SEL, timeout=20000)
-                    captured["html"] = frame.inner_html("#MainContent_pnlContainer")
-                except Exception:
-                    captured["html"] = frame.content()
-                return
+                _log("framenavigated timed out")
 
         def _fetch():
+            _log("StealthyFetcher.fetch start")
             StealthyFetcher.fetch(
                 CME_URL,
                 network_idle=False,
@@ -298,34 +314,34 @@ async def get_fed_rate_probabilities() -> str:
                 timeout=60000,
                 headless=True,
             )
+            _log("StealthyFetcher.fetch done")
 
         await asyncio.to_thread(_fetch)
+        _log(f"html present={bool(captured.get('html'))}")
 
         html = captured.get("html", "")
         if not html:
             return "Could not load QuikStrike frame from CME FedWatch page"
 
-        soup = BeautifulSoup(html, "html.parser")
+        from scrapling.parser import Selector
+        doc = Selector(html)
         lines = ["=== CME FedWatch — Fed Rate Probabilities ===\n"]
 
-        # Use the known selector path; strip the leading "#MainContent_pnlContainer >"
-        # since we already have inner_html of #MainContent_pnlContainer
-        tables = soup.select("div.ui-widget-info div.margin-bottom-sm table")
+        tables = doc.css("div.ui-widget-info div.margin-bottom-sm table")
         if not tables:
-            # fallback: any table in the container
-            tables = soup.find_all("table")
+            tables = doc.css("table")
         if not tables:
-            lines.append(soup.get_text(separator=" ", strip=True)[:3000])
+            lines.append(doc.get_all_text(strip=True)[:3000])
             return "\n".join(lines)
 
         for table in tables:
-            rows = table.find_all("tr")
+            rows = table.css("tr")
             if not rows:
                 continue
             parsed = []
             for row in rows:
-                cells = row.find_all(["th", "td"])
-                texts = [c.get_text(strip=True) for c in cells]
+                cells = row.css("td, th")
+                texts = [c.get_all_text(strip=True) for c in cells]
                 if any(texts):
                     parsed.append(texts)
             if not parsed:
@@ -337,6 +353,7 @@ async def get_fed_rate_probabilities() -> str:
                 if i == 0:
                     lines.append("-" * (sum(widths) + 2 * (col_count - 1)))
             lines.append("")
+        _log("done")
 
         return "\n".join(lines)
     except Exception as e:
