@@ -1,0 +1,26 @@
+[project]
+name = "crawl-x-tests"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=7.4",
+    "yfinance>=0.2.0",
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "mcp[cli]>=1.0.0",
+    "openai>=1.0.0",
+    "scrapling[all]>=0.4.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+markers = [
+    "integration: live network call (runs by default)",
+    "slow: slow browser-scraping test — skip with: pytest -m 'not slow'",
+    "requires_fred: needs FRED_API_KEY or ~/.config/macro-mcp/config.json",
+    "requires_finnhub: needs FINNHUB_API_KEY",
+    "requires_reddit: needs REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET",
+    "requires_quiver: needs QUIVER_API_KEY",
+    "requires_glassnode: needs GLASSNODE_API_KEY",
+    "requires_xai: needs XAI_API_KEY or ~/.config/grok-mcp/config.json",
+]

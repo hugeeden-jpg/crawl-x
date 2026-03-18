@@ -52,24 +52,41 @@ else
   ok "Scrapling installed"
 fi
 
+# ── Optional social-mcp dependencies ─────────────────────────────────────────
+
+echo ""
+echo "Checking optional social-mcp dependencies..."
+if command -v xreach &>/dev/null; then
+  ok "xreach CLI found (Twitter/X support enabled)"
+else
+  warn "xreach CLI not found (Twitter/X tools will be unavailable)"
+  warn "  Install: npm install -g xreach-cli"
+fi
+if command -v yt-dlp &>/dev/null; then
+  ok "yt-dlp found (YouTube support enabled)"
+else
+  warn "yt-dlp not found (YouTube tools will be unavailable)"
+  warn "  Install: uv tool install yt-dlp"
+fi
+
 # ── API keys (optional, can be set later) ────────────────────────────────────
 
 echo ""
 echo "─── API Keys (press Enter to skip) ───────────────────────────────────────"
-echo "  Required: XAI_API_KEY (grok-mcp)"
 echo "  Required: FRED_API_KEY (macro-mcp)"
-echo "  Optional: FINNHUB_API_KEY, REDDIT_CLIENT_ID, REDDIT_CLIENT_SECRET,"
-echo "            QUIVER_API_KEY, COINGECKO_API_KEY, GLASSNODE_API_KEY"
+echo "  Optional: XAI_API_KEY (grok-mcp — AI-synthesized X analysis; raw tweets via social-data/xreach)"
+echo "  Optional: FINNHUB_API_KEY, QUIVER_API_KEY, COINGECKO_API_KEY, GLASSNODE_API_KEY"
+echo "  Optional: TWITTER_AUTH_TOKEN, TWITTER_CT0 (social-mcp — see SKILL.md for cookie setup)"
 echo ""
 
-read -rp "XAI_API_KEY          (grok-mcp, required)   : " XAI_API_KEY
 read -rp "FRED_API_KEY         (macro-mcp, required)  : " FRED_API_KEY
+read -rp "XAI_API_KEY          (grok-mcp, optional)   : " XAI_API_KEY
 read -rp "FINNHUB_API_KEY      (market-data, optional): " FINNHUB_API_KEY
-read -rp "REDDIT_CLIENT_ID     (sentiment, optional)  : " REDDIT_CLIENT_ID
-read -rp "REDDIT_CLIENT_SECRET (sentiment, optional)  : " REDDIT_CLIENT_SECRET
 read -rp "QUIVER_API_KEY       (sentiment, optional)  : " QUIVER_API_KEY
 read -rp "COINGECKO_API_KEY    (crypto, optional)     : " COINGECKO_API_KEY
 read -rp "GLASSNODE_API_KEY    (crypto, optional)     : " GLASSNODE_API_KEY
+read -rp "TWITTER_AUTH_TOKEN   (social, optional)     : " TWITTER_AUTH_TOKEN
+read -rp "TWITTER_CT0          (social, optional)     : " TWITTER_CT0
 
 # ── helper: build -e KEY=VAL flags (skip empty values) ───────────────────────
 
@@ -102,8 +119,9 @@ register "grok-news"         "grok-mcp/server.py"         $(env_flags "XAI_API_K
 register "market-data"       "market-data-mcp/server.py"  $(env_flags "FINNHUB_API_KEY=$FINNHUB_API_KEY")
 register "crypto-data"       "crypto-mcp/server.py"       $(env_flags "COINGECKO_API_KEY=$COINGECKO_API_KEY" "GLASSNODE_API_KEY=$GLASSNODE_API_KEY")
 register "macro-data"        "macro-mcp/server.py"        $(env_flags "FRED_API_KEY=$FRED_API_KEY")
-register "sentiment-data"    "sentiment-mcp/server.py"    $(env_flags "REDDIT_CLIENT_ID=$REDDIT_CLIENT_ID" "REDDIT_CLIENT_SECRET=$REDDIT_CLIENT_SECRET" "QUIVER_API_KEY=$QUIVER_API_KEY")
+register "sentiment-data"    "sentiment-mcp/server.py"    $(env_flags "QUIVER_API_KEY=$QUIVER_API_KEY")
 register "financial-scraper" "scrape-mcp/server.py"
+register "social-data"       "social-mcp/server.py"       $(env_flags "TWITTER_AUTH_TOKEN=$TWITTER_AUTH_TOKEN" "TWITTER_CT0=$TWITTER_CT0")
 
 # ── optionally generate Claude Desktop config ─────────────────────────────────
 
@@ -151,12 +169,17 @@ if $DESKTOP_MODE; then
     "sentiment-data": {
       "command": "uv",
       "args": ["run", "$REPO_DIR/sentiment-mcp/server.py"],
-      "env": $(env_obj "REDDIT_CLIENT_ID=$REDDIT_CLIENT_ID" "REDDIT_CLIENT_SECRET=$REDDIT_CLIENT_SECRET" "QUIVER_API_KEY=$QUIVER_API_KEY")
+      "env": $(env_obj "QUIVER_API_KEY=$QUIVER_API_KEY")
     },
     "financial-scraper": {
       "command": "uv",
       "args": ["run", "$REPO_DIR/scrape-mcp/server.py"],
       "env": {}
+    },
+    "social-data": {
+      "command": "uv",
+      "args": ["run", "$REPO_DIR/social-mcp/server.py"],
+      "env": $(env_obj "TWITTER_AUTH_TOKEN=$TWITTER_AUTH_TOKEN" "TWITTER_CT0=$TWITTER_CT0")
     }
   }
 }

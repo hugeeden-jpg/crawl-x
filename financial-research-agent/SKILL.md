@@ -9,18 +9,19 @@ description: >
 
 # Financial Research Agent
 
-Full-stack financial research via 6 MCP servers.
+Full-stack financial research via 7 MCP servers.
 
 ## MCP Ecosystem Map
 
 | MCP Server | Data Sources | Use For |
 |------------|-------------|---------|
-| `grok-news` | X/Twitter via Grok | X sentiment, KOL opinions, breaking news |
+| `grok-news` | X/Twitter via Grok AI | AI-synthesized X sentiment, trend analysis (requires XAI key, optional) |
 | `market-data` | yfinance + Finnhub | Stock quotes, history, financials, earnings |
 | `macro-data` | FRED + SEC EDGAR | Fed rates, CPI, GDP, 13F filings |
-| `sentiment-data` | Reddit + StockTwits + Alternative.me + Quiver | Retail sentiment, Fear/Greed, congressional trades |
+| `sentiment-data` | Alternative.me + Quiver | Fear/Greed, congressional trades, insider sentiment |
 | `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
 | `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch | Insider trades, political trades, rate probabilities |
+| `social-data` | Reddit (public JSON) + Twitter/X (xreach) + YouTube (yt-dlp) | Raw social posts, WSB, KOL timelines, earnings transcripts |
 
 ## Claude Desktop Config
 
@@ -45,11 +46,7 @@ Full-stack financial research via 6 MCP servers.
     "sentiment-data": {
       "command": "uv",
       "args": ["run", "/Users/eden/crawl-x/sentiment-mcp/server.py"],
-      "env": {
-        "REDDIT_CLIENT_ID": "...",
-        "REDDIT_CLIENT_SECRET": "...",
-        "QUIVER_API_KEY": "..."
-      }
+      "env": {"QUIVER_API_KEY": "..."}
     },
     "crypto-data": {
       "command": "uv",
@@ -59,6 +56,14 @@ Full-stack financial research via 6 MCP servers.
     "financial-scraper": {
       "command": "/Users/eden/.local/share/uv/tools/scrapling/bin/python",
       "args": ["/Users/eden/crawl-x/scrape-mcp/server.py"]
+    },
+    "social-data": {
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/social-mcp/server.py"],
+      "env": {
+        "TWITTER_AUTH_TOKEN": "...",
+        "TWITTER_CT0": "..."
+      }
     }
   }
 }
@@ -75,16 +80,18 @@ Full-stack financial research via 6 MCP servers.
 - "What is the Fed doing / interest rates / inflation?" → `macro-data` → `get_key_indicators`, `get_fred_data`
 - "What is X's 10-K / 10-Q / SEC filing?" → `macro-data` → `search_edgar_company`, `get_recent_filings`
 - "Who owns what? What did fund X buy?" → `macro-data` → `get_13f_holdings`
-- "What is Reddit / WSB saying about X?" → `sentiment-data` → `get_reddit_ticker_mentions`, `get_wsb_mentions`
+- "What is Reddit / WSB saying about X?" → `social-data` → `search_reddit(query, subreddit="wallstreetbets")`
 - "Is the crypto market fearful or greedy?" → `sentiment-data` → `get_fear_greed_index`
 - "What are politicians buying/selling?" → `sentiment-data` → `get_congressional_trades` OR `financial-scraper` → `get_congressional_trades`
 - "What is X trading for? What is Bitcoin doing?" → `crypto-data` → `get_crypto_price`, `get_global_market`
 - "What is DeFi TVL? What is Uniswap's TVL?" → `crypto-data` → `get_defi_tvl_overview`, `get_protocol_tvl`
 - "What are on-chain signals for BTC/ETH?" → `crypto-data` → `get_onchain_metric`, `get_exchange_flows`
-- "What is X trending on Twitter/X?" → `grok-news` → `search_x_news`, `get_ticker_sentiment`
-- "What did Elon/Buffett/[KOL] say recently?" → `grok-news` → `get_kol_mentions`
+- "What is X/Twitter saying about $TICKER?" → `social-data` → `search_tweets(query)` (raw); `grok-news` → `get_ticker_sentiment` (AI synthesis, needs XAI key)
+- "What did [KOL] post recently?" → `social-data` → `get_user_timeline(username)`
+- "What is the overall X sentiment narrative?" → `grok-news` → `search_x_news`, `get_ticker_sentiment` (needs XAI key)
 - "Are insiders buying or selling X?" → `financial-scraper` → `get_insider_trades`
 - "What are Fed rate hike probabilities?" → `financial-scraper` → `get_fed_rate_probabilities`
+- "Get the earnings call transcript for X" → `social-data` → `search_youtube(query)` → `get_video_transcript(url)`
 
 ## Tools Quick Reference
 
@@ -151,6 +158,21 @@ Full-stack financial research via 6 MCP servers.
 | `get_congressional_trades(ticker, politician, days)` | Capitol Trades |
 | `get_fed_rate_probabilities()` | CME FedWatch |
 
+### social-data
+| Tool | Description |
+|------|-------------|
+| `configure_twitter(auth_token, ct0)` | Save Twitter cookie credentials |
+| `search_tweets(query, n)` | Search raw tweets by keyword/ticker |
+| `get_tweet(url_or_id)` | Fetch a single tweet |
+| `get_user_timeline(username, n)` | KOL/account recent tweets |
+| `get_thread(url_or_id)` | Full Twitter thread |
+| `get_subreddit_posts(subreddit, sort, limit)` | Subreddit hot/new/top posts |
+| `search_reddit(query, limit, subreddit)` | Reddit post search |
+| `get_post_comments(post_url, limit)` | Reddit post + top comments |
+| `get_video_info(url)` | YouTube video metadata |
+| `get_video_transcript(url, lang)` | YouTube captions/transcript |
+| `search_youtube(query, n)` | YouTube video search |
+
 ## Workflow Patterns
 
 ### A: Stock Deep-Dive (e.g. NVDA)
@@ -206,6 +228,16 @@ Full-stack financial research via 6 MCP servers.
 6. grok-news: search_x_news("$AAPL earnings preview") — X chatter
 ```
 
+### G: Social Sentiment Deep-Dive (e.g. NVDA)
+```
+1. social-data: search_reddit("NVDA earnings", subreddit="wallstreetbets", limit=10)
+2. social-data: get_subreddit_posts("stocks", sort="hot", limit=10)
+3. social-data: search_tweets("$NVDA", n=15)
+4. social-data: get_user_timeline("nvidia", n=10)
+5. social-data: search_youtube("NVDA earnings call 2025", n=3) → get_video_transcript(url)
+6. sentiment-data: get_fear_greed_index(7)
+```
+
 ### F: DeFi Protocol Due Diligence
 ```
 1. crypto-data: get_defi_tvl_overview(20) — DeFi landscape
@@ -223,14 +255,15 @@ Full-stack financial research via 6 MCP servers.
 | market-data | Finnhub | 60 calls/minute |
 | macro-data | FRED | 120 calls/minute |
 | macro-data | SEC EDGAR | ~10 calls/second (be polite) |
-| sentiment-data | Reddit | ~60 calls/minute (OAuth) |
-| sentiment-data | StockTwits | ~200 calls/hour |
 | sentiment-data | Alternative.me | No stated limit |
 | sentiment-data | Quiver | Limited/day on free tier |
 | crypto-data | CoinGecko | 30/min (no key) / 500/min (key) |
 | crypto-data | DeFi Llama | Generous, no stated limit |
 | crypto-data | Glassnode | Daily resolution on free tier |
-| grok-news | xAI Grok | Per your API plan |
+| grok-news | xAI Grok | Per your API plan (optional — raw tweets via social-data) |
+| social-data | Reddit JSON API | ~60 requests/min (no key, User-Agent required) |
+| social-data | Twitter xreach | Per your account limits |
+| social-data | YouTube yt-dlp | Generous (public videos) |
 
 ## Data Freshness
 
@@ -239,8 +272,9 @@ Full-stack financial research via 6 MCP servers.
 | yfinance | 15-min delayed (US markets) |
 | Finnhub | Real-time (paid) / delayed (free) |
 | FRED | Varies: daily/weekly/monthly/quarterly |
-| StockTwits | Real-time |
-| Reddit | Real-time |
+| Reddit (social-data) | Real-time |
+| Twitter/X (social-data) | Real-time |
+| YouTube (social-data) | Real-time (public videos) |
 | Alternative.me Fear/Greed | Updated daily |
 | CoinGecko | ~1-5 min |
 | DeFi Llama | ~1 hour |
@@ -252,7 +286,7 @@ Full-stack financial research via 6 MCP servers.
 ## Limitations
 
 - No historical backtesting or strategy simulation
-- No raw tweet data (only Grok-synthesized analysis)
+- `grok-news` requires a paid XAI API key; use `social-data` for raw tweets without cost
 - Glassnode free tier: limited to ~10 metrics, daily resolution only
 - Scraping targets (OpenInsider, Capitol Trades, CME) may change HTML/API structure
 - EDGAR 13F parsing requires knowing the CIK number

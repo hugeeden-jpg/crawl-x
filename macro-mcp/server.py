@@ -32,6 +32,21 @@ EDGAR_HEADERS = {"User-Agent": "financial-research-mcp/1.0 contact@example.com"}
 
 mcp = FastMCP("macro-data")
 
+
+def _date_in_quarter(date_str: str, period: str) -> bool:
+    """Return True if date_str (YYYY-MM-DD) falls within the given period (e.g. '2024Q3')."""
+    try:
+        year = int(period[:4])
+        q = int(period[5])
+        month = int(date_str[5:7])
+        file_year = int(date_str[:4])
+        q_start = (q - 1) * 3 + 1
+        q_end = q_start + 2
+        # 13F filings are typically filed within 45 days of quarter end, so check year+quarter range
+        return file_year == year and q_start <= month <= q_end + 1
+    except (ValueError, IndexError):
+        return False
+
 KEY_SERIES = {
     "DFF": "Fed Funds Rate (Daily)",
     "CPIAUCSL": "CPI (All Urban Consumers, SA)",
@@ -244,20 +259,22 @@ def get_recent_filings(ticker_or_cik: str, form_type: str = "10-K", limit: int =
     """
     try:
         # Resolve ticker to CIK if needed
+        # Use the static company_tickers.json (~1s) instead of the legacy CGI endpoint (~10s+)
         cik = ticker_or_cik.strip()
         if not cik.isdigit():
             r = requests.get(
-                "https://www.sec.gov/cgi-bin/browse-edgar",
-                params={"company": "", "CIK": cik, "type": form_type, "dateb": "", "owner": "include",
-                        "count": "1", "search_text": "", "action": "getcompany", "output": "atom"},
+                "https://www.sec.gov/files/company_tickers.json",
                 headers=EDGAR_HEADERS,
                 timeout=15,
             )
-            # Parse CIK from response
-            import re
-            match = re.search(r"CIK=(\d+)", r.url + r.text)
-            if match:
-                cik = match.group(1).lstrip("0") or match.group(1)
+            r.raise_for_status()
+            ticker_upper = cik.upper()
+            entry = next(
+                (v for v in r.json().values() if v.get("ticker", "").upper() == ticker_upper),
+                None,
+            )
+            if entry:
+                cik = str(entry["cik_str"])
 
         # Pad CIK to 10 digits
         cik_padded = cik.zfill(10)
@@ -317,33 +334,29 @@ def get_13f_holdings(cik: str, period: str = None) -> str:
         dates = filings.get("filingDate", [])
         accessions = filings.get("accessionNumber", [])
 
-        # Find the latest 13F-HR
+        # Find the latest 13F-HR, optionally matching a quarter (e.g. "2024Q3")
         target_acc = None
         target_date = None
         for i, form in enumerate(forms):
             if form in ("13F-HR", "13F-HR/A"):
-                if period is None or period.replace("Q", "Q") in dates[i]:
+                if period is None or _date_in_quarter(dates[i], period):
                     target_acc = accessions[i]
                     target_date = dates[i]
                     break
 
         if not target_acc:
-            return f"No 13F-HR filing found for CIK {cik}"
+            return f"No 13F-HR filing found for CIK {cik}" + (f" for period {period}" if period else "")
 
         acc_clean = target_acc.replace("-", "")
-        index_url = f"https://www.sec.gov/Archives/edgar/data/{cik.lstrip('0')}/{acc_clean}/{target_acc}-index.htm"
-
-        r2 = requests.get(
-            f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik_padded}&type=13F-HR&dateb=&owner=include&count=1&output=atom",
-            headers=EDGAR_HEADERS,
-            timeout=15,
-        )
+        cik_num = cik_padded.lstrip("0") or "0"
+        archive_url = f"https://www.sec.gov/Archives/edgar/data/{cik_num}/{acc_clean}/"
 
         lines = [f"=== {company} 13F Holdings ({target_date}) ==="]
         lines.append(f"Accession: {target_acc}")
         lines.append(f"\nTo view full holdings, access:")
         lines.append(f"https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK={cik_padded}&type=13F-HR")
-        lines.append(f"\nUse get_filing_text('{target_acc}') for the raw filing content.")
+        lines.append(f"\nFiling index: {archive_url}")
+        lines.append(f"Use get_filing_text('{target_acc}') for the raw filing content.")
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"
@@ -359,43 +372,39 @@ def get_filing_text(accession_number: str, section: str = None) -> str:
         section: Optional section name to search for within the filing
     """
     try:
-        acc_clean = accession_number.replace("-", "")
-        # Try to fetch the filing index
+        # Use EFTS full-text search to resolve accession → company/form metadata
         r = requests.get(
-            f"https://www.sec.gov/Archives/edgar/data/",
-            headers=EDGAR_HEADERS,
-            timeout=15,
-        )
-        # Use EFTS full-text search API
-        r2 = requests.get(
             f"{EDGAR_EFTS}/efts/v1/hits.json",
             params={"q": accession_number, "dateRange": "custom"},
             headers=EDGAR_HEADERS,
             timeout=15,
         )
-        r2.raise_for_status()
-        hits = r2.json().get("hits", {}).get("hits", [])
+        r.raise_for_status()
+        hits = r.json().get("hits", {}).get("hits", [])
         if not hits:
             return f"Filing {accession_number} not found in EDGAR full-text search"
 
         src = hits[0].get("_source", {})
-        file_url = src.get("file_date", "")
+        file_date = src.get("file_date", "")
         entity = src.get("display_names", [""])[0] if src.get("display_names") else ""
         form = src.get("form_type", "")
+        cik = str(src.get("entity_id", "")).lstrip("0") or "0"
+
+        acc_clean = accession_number.replace("-", "")
+        archive_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{acc_clean}/"
 
         lines = [f"=== Filing: {accession_number} ==="]
         lines.append(f"Company: {entity}")
         lines.append(f"Form:    {form}")
-        lines.append(f"\nFiling viewer: https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&filenum=&State=0&SIC=&dateb=&owner=include&count=40&search_text=&action=getcompany")
-        lines.append(f"\nDirect EDGAR access:")
-        lines.append(f"https://www.sec.gov/Archives/edgar/data/")
+        lines.append(f"Filed:   {file_date}")
+        lines.append(f"\nFiling index: {archive_url}")
 
         text_excerpt = str(src)[:8000]
         if section:
             idx = text_excerpt.lower().find(section.lower())
             if idx != -1:
                 text_excerpt = text_excerpt[max(0, idx-100):idx+2000]
-        lines.append(f"\n--- Content Preview ---\n{text_excerpt}")
+        lines.append(f"\n--- Metadata Preview ---\n{text_excerpt}")
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"

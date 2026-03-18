@@ -23,6 +23,7 @@ if _brew_ca.exists():
 import requests
 from datetime import datetime, timedelta
 
+import pandas as pd
 import yfinance as yf
 from mcp.server.fastmcp import FastMCP
 
@@ -192,7 +193,7 @@ def get_financials(ticker: str, statement: str = "income") -> str:
         for idx, row in df.head(20).iterrows():
             metric = str(idx)[:39]
             vals = "".join(
-                f"{row.iloc[i]/1e6:>19.1f}M" if i < len(row) and row.iloc[i] is not None and abs(row.iloc[i]) > 1000
+                f"{row.iloc[i]/1e6:>19.1f}M" if i < len(row) and pd.notna(row.iloc[i]) and abs(row.iloc[i]) > 1000
                 else f"{'N/A':>20}"
                 for i in range(min(4, len(row)))
             )
@@ -347,8 +348,8 @@ def get_news_sentiment(ticker: str) -> str:
         lines.append("\nSentiment Scores:")
         lines.append(f"  Bearish:           {sentiment.get('bearishPercent', 'N/A')}")
         lines.append(f"  Bullish:           {sentiment.get('bullishPercent', 'N/A')}")
-        lines.append(f"  Sector Avg Bear:   {data.get('sectorAverageBullishPercent', 'N/A')}")
-        lines.append(f"  Sector Avg Bull:   {data.get('sectorAverageBearishPercent', 'N/A')}")
+        lines.append(f"  Sector Avg Bull:   {data.get('sectorAverageBullishPercent', 'N/A')}")
+        lines.append(f"  Sector Avg Bear:   {data.get('sectorAverageBearishPercent', 'N/A')}")
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"

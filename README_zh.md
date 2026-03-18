@@ -1,0 +1,227 @@
+[English](README.md)
+
+# crawl-x — 金融智能 MCP 套件
+
+一套 MCP（模型上下文协议）服务器集合，让 Claude 实时访问股票行情、宏观经济指标、加密货币分析、市场情绪、内部人交易/国会交易记录，以及 Twitter/X、Reddit、YouTube 等社交媒体数据。
+
+## MCP 概览
+
+| MCP | 服务器名称 | 功能描述 | API Key |
+|-----|-----------|---------|---------|
+| `market-data-mcp` | `market-data` | 股票报价、财务报表、新闻、财报日历 | Finnhub（可选） |
+| `macro-mcp` | `macro-data` | FRED 经济数据、SEC EDGAR 文件 | FRED（必须） |
+| `crypto-mcp` | `crypto-data` | CoinGecko 价格、DeFi TVL、Glassnode 链上数据 | 可选 |
+| `sentiment-mcp` | `sentiment-data` | 恐慌贪婪指数、国会/内部人情绪（Quiver） | 可选 |
+| `scrape-mcp` | `financial-scraper` | OpenInsider 内部人交易、Capitol Trades、CME FedWatch | 无需 |
+| `grok-mcp` | `grok-news` | 通过 Grok AI 获取 X/Twitter 新闻与情绪分析 | XAI（可选） |
+| `social-mcp` | `social-data` | Reddit（公开）、Twitter/X（xreach）、YouTube（yt-dlp） | 可选 |
+
+---
+
+## 前置条件
+
+**1. 安装 [uv](https://docs.astral.sh/uv/getting-started/installation/)**
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**2. 安装 [Claude Code](https://claude.ai/code)**（CLI 使用）
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+---
+
+## 安装
+
+```bash
+git clone https://github.com/you/crawl-x
+cd crawl-x
+bash install.sh
+```
+
+脚本会自动完成以下操作：
+- 检查 `uv` 和 `claude` CLI 是否已安装
+- 安装 Scrapling（`scrape-mcp` 抓取 Capitol Trades 和 CME FedWatch 所需）
+- 提示输入 API Key（可直接回车跳过可选项）
+- 通过 `claude mcp add` 注册所有 MCP 到 Claude CLI
+
+同时生成 Claude Desktop 配置文件：
+
+```bash
+bash install.sh --desktop
+```
+
+> **注意：** 生成的 `claude_desktop_config.json` 包含当前机器的绝对路径。若分享给他人使用，需将路径替换为对方机器上的实际仓库位置。
+
+---
+
+## API Keys
+
+| Key | 使用方 | 获取地址 |
+|-----|--------|---------|
+| `XAI_API_KEY` | grok-mcp | [console.x.ai](https://console.x.ai) — 可选；原始推文可通过 `social-data` 获取 |
+| `FRED_API_KEY` | macro-mcp | [fred.stlouisfed.org/docs/api](https://fred.stlouisfed.org/docs/api/api_key.html) |
+| `FINNHUB_API_KEY` | market-data-mcp | [finnhub.io](https://finnhub.io) |
+| `QUIVER_API_KEY` | sentiment-mcp | [quiverquant.com](https://www.quiverquant.com) |
+| `COINGECKO_API_KEY` | crypto-mcp | [coingecko.com/api](https://www.coingecko.com/en/api) |
+| `GLASSNODE_API_KEY` | crypto-mcp | [glassnode.com](https://glassnode.com) |
+| `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie（Cookie-Editor → `auth_token`） |
+| `TWITTER_CT0` | social-mcp | x.com cookie（Cookie-Editor → `ct0`） |
+
+Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 工具在之后配置。
+
+> **Twitter Cookie 配置：** 安装 [Cookie-Editor](https://cookie-editor.com/) 浏览器扩展，登录 x.com，复制 `auth_token` 和 `ct0` 的 cookie 值，然后在 Claude 中调用 `configure_twitter(auth_token=..., ct0=...)` 即可。
+
+---
+
+## Claude Desktop 配置
+
+运行 `bash install.sh --desktop` 后，将生成的 `claude_desktop_config.json` 内容合并到：
+
+```
+~/Library/Application Support/Claude/claude_desktop_config.json   # macOS
+%APPDATA%\Claude\claude_desktop_config.json                        # Windows
+```
+
+重启 Claude Desktop 即可加载所有 MCP。
+
+---
+
+## 可用工具
+
+### market-data
+| 工具 | 功能 |
+|------|------|
+| `get_quote` | 实时股票报价 |
+| `get_stock_info` | 公司概览与核心指标 |
+| `get_stock_history` | OHLCV 历史价格 |
+| `get_financials` | 利润表 / 资产负债表 / 现金流量表 |
+| `get_analyst_recommendations` | 买入/持有/卖出评级 |
+| `get_market_news` | 市场综合新闻（Finnhub） |
+| `get_company_news` | 指定股票最新新闻（Finnhub） |
+| `get_earnings_calendar` | 即将发布的财报日历（Finnhub） |
+| `get_news_sentiment` | 新闻情绪与热度评分（Finnhub） |
+
+### macro-data
+| 工具 | 功能 |
+|------|------|
+| `search_fred_series` | 按关键词搜索 FRED 经济数据系列 |
+| `get_fred_data` | 获取任意 FRED 时间序列数据 |
+| `get_key_indicators` | 联储利率、10Y 收益率、CPI、失业率 |
+| `search_edgar_company` | 搜索 SEC EDGAR 公司数据库 |
+| `get_recent_filings` | 获取公司近期 10-K/10-Q/8-K 文件列表 |
+| `get_13f_holdings` | 基金 13F 持仓元数据与归档链接 |
+| `get_filing_text` | 特定 SEC 文件的元数据与归档 URL |
+
+### crypto-data
+| 工具 | 功能 |
+|------|------|
+| `get_crypto_price` | 币种价格与 24h 统计 |
+| `get_crypto_market_data` | 历史最高价、供应量、多周期涨跌幅 |
+| `get_global_market` | 全球加密市场概览 |
+| `get_trending_coins` | CoinGecko 热门币种 |
+| `get_defi_tvl_overview` | TVL 排名前列的 DeFi 协议 |
+| `get_protocol_tvl` | 指定协议的 TVL 历史与跨链分布 |
+| `get_chain_tvl` | 指定链的 TVL 趋势 |
+| `get_onchain_metric` | Glassnode 链上指标（需 Key） |
+| `get_exchange_flows` | 交易所资金流入/流出（需 Key） |
+
+### sentiment-data
+| 工具 | 功能 |
+|------|------|
+| `get_fear_greed_index` | 加密恐慌贪婪指数历史 |
+| `get_congressional_trades` | 国会议员股票交易（Quiver，需 Key） |
+| `get_wsb_mentions` | WSB 提及次数与情绪（需 Key） |
+| `get_insider_sentiment` | 内部人交易情绪汇总（需 Key） |
+
+### financial-scraper
+| 工具 | 功能 |
+|------|------|
+| `get_insider_trades` | OpenInsider SEC Form 4 交易（无需 Key，约 2s） |
+| `get_congressional_trades` | Capitol Trades 国会实时交易（约 15s） |
+| `get_fed_rate_probabilities` | CME FedWatch FOMC 利率概率（约 14s） |
+
+### grok-news
+| 工具 | 功能 |
+|------|------|
+| `search_x_news` | 搜索 X/Twitter 新闻与帖子 |
+| `get_ticker_sentiment` | 指定股票/加密货币的 X 平台情绪分析 |
+| `get_financial_news` | 来自 X 及网络的金融新闻摘要 |
+| `get_kol_mentions` | 关键意见领袖近期发帖 |
+
+### social-data
+| 工具 | 功能 | 依赖 |
+|------|------|------|
+| `configure_twitter(auth_token, ct0)` | 保存 Twitter Cookie 凭据 | — |
+| `search_tweets(query, n)` | 按关键词或 $TICKER 搜索原始推文 | xreach + cookie |
+| `get_tweet(url_or_id)` | 获取单条推文 | xreach + cookie |
+| `get_user_timeline(username, n)` | 获取用户时间线 | xreach + cookie |
+| `get_thread(url_or_id)` | 获取完整对话串 | xreach + cookie |
+| `get_subreddit_posts(subreddit, sort, limit)` | 浏览子版块帖子（热门/最新/最高） | 无 |
+| `search_reddit(query, limit, subreddit)` | Reddit 帖子搜索 | 无 |
+| `get_post_comments(post_url, limit)` | 获取帖子与顶部评论 | 无 |
+| `get_video_info(url)` | YouTube 视频元数据 | yt-dlp |
+| `get_video_transcript(url, lang)` | YouTube 字幕 / 讲稿提取 | yt-dlp |
+| `search_youtube(query, n)` | YouTube 视频搜索 | yt-dlp |
+
+---
+
+## 测试
+
+测试套件覆盖全部 7 个 MCP。
+
+```bash
+cd tests
+
+# 运行所有快速测试（约 60s，无浏览器，自动跳过未配置的 Key）
+uv run pytest -m "not slow"
+
+# 包含浏览器抓取测试（Capitol Trades、CME FedWatch，约 5 分钟）
+uv run pytest
+
+# 单独运行某个 MCP 的测试
+uv run pytest test_scrape.py -v
+```
+
+**测试分类：**
+
+| 分类 | 覆盖范围 | 说明 |
+|------|---------|------|
+| 免费 API（始终运行） | CoinGecko、DeFi Llama、恐慌贪婪指数、SEC EDGAR、OpenInsider、yfinance、Reddit | 无需 Key |
+| Key 限制（自动跳过） | FRED、Finnhub、Quiver、Glassnode、XAI、Twitter（xreach） | 未配置 Key 时自动 skip |
+| `slow`（按需运行） | Capitol Trades、CME FedWatch、YouTube（yt-dlp） | 浏览器/CLI；用 `-m "not slow"` 跳过 |
+
+免费层 API 的瞬时限速错误（HTTP 429、超时）会自动 skip，不计入失败。
+
+---
+
+## 项目结构
+
+```
+crawl-x/
+├── install.sh                    # 一键安装脚本
+├── market-data-mcp/server.py
+├── macro-mcp/server.py
+├── crypto-mcp/server.py
+├── sentiment-mcp/server.py
+├── scrape-mcp/server.py
+├── grok-mcp/server.py
+├── social-mcp/server.py
+├── financial-research-agent/     # 主 Agent Skill
+│   └── SKILL.md
+└── tests/                        # 回归测试套件
+    ├── pyproject.toml
+    ├── conftest.py
+    ├── test_market_data.py
+    ├── test_macro.py
+    ├── test_crypto.py
+    ├── test_sentiment.py
+    ├── test_scrape.py
+    ├── test_grok.py
+    └── test_social.py
+```
+
+每个 `server.py` 均使用 [PEP 723 内联脚本依赖](https://peps.python.org/pep-0723/) — `uv run` 会在首次启动时自动安装所有依赖，无需手动 `pip install`。

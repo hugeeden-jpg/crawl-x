@@ -154,7 +154,6 @@ def get_crypto_market_data(coin_id: str) -> str:
         lines.append(f"Circulating Supply:   {circ:,.0f} {symbol}" if circ else "")
         lines.append(f"Total Supply:         {total:,.0f} {symbol}" if total else "")
 
-        dom = mkt.get("market_cap_percentage", {})  # not in this endpoint
         return "\n".join(l for l in lines if l)
     except Exception as e:
         return f"Error: {e}"
@@ -402,6 +401,9 @@ def get_exchange_flows(asset: str = "BTC") -> str:
         lines.append(f"{'Date':<14} {'Inflow':>14} {'Outflow':>14} {'Netflow':>14}")
         lines.append("-" * 60)
 
+        def fmt(v):
+            return "N/A" if v is None else f"{v:,.2f}"
+
         dates = set()
         for flow_type in results:
             for entry in results[flow_type]:
@@ -412,12 +414,6 @@ def get_exchange_flows(asset: str = "BTC") -> str:
             in_val = next((e["v"] for e in results["inflow"] if e.get("t") == ts), None)
             out_val = next((e["v"] for e in results["outflow"] if e.get("t") == ts), None)
             net_val = next((e["v"] for e in results["netflow"] if e.get("t") == ts), None)
-
-            def fmt(v):
-                if v is None:
-                    return "N/A"
-                return f"{v:,.2f}"
-
             lines.append(f"{date:<14} {fmt(in_val):>14} {fmt(out_val):>14} {fmt(net_val):>14}")
         return "\n".join(lines)
     except Exception as e:

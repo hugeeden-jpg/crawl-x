@@ -6,7 +6,7 @@
 # ]
 # ///
 """
-Sentiment MCP Server - Reddit + Alternative.me + Quiver Quantitative
+Sentiment MCP Server - Alternative.me + Quiver Quantitative
 Social sentiment, fear/greed index, congressional trades, WSB mentions
 """
 
@@ -20,7 +20,7 @@ if _brew_ca.exists():
     os.environ.setdefault("REQUESTS_CA_BUNDLE", str(_brew_ca))
 
 import requests
-from datetime import datetime, timezone
+from datetime import datetime
 
 from mcp.server.fastmcp import FastMCP
 
@@ -33,150 +33,23 @@ mcp = FastMCP("sentiment-data")
 
 def load_config() -> dict:
     cfg = {}
-    cfg["reddit_client_id"] = os.environ.get("REDDIT_CLIENT_ID", "")
-    cfg["reddit_client_secret"] = os.environ.get("REDDIT_CLIENT_SECRET", "")
     cfg["quiver_api_key"] = os.environ.get("QUIVER_API_KEY", "")
 
     if CONFIG_FILE.exists():
         file_cfg = json.loads(CONFIG_FILE.read_text())
-        for k in ("reddit_client_id", "reddit_client_secret", "quiver_api_key"):
-            if not cfg[k]:
-                cfg[k] = file_cfg.get(k, "")
+        if not cfg["quiver_api_key"]:
+            cfg["quiver_api_key"] = file_cfg.get("quiver_api_key", "")
     return cfg
 
 
-def get_reddit_token(client_id: str, client_secret: str) -> str:
-    r = requests.post(
-        "https://www.reddit.com/api/v1/access_token",
-        auth=(client_id, client_secret),
-        data={"grant_type": "client_credentials"},
-        headers={"User-Agent": "financial-research-mcp/1.0"},
-        timeout=15,
-    )
-    r.raise_for_status()
-    return r.json()["access_token"]
-
-
 @mcp.tool()
-def configure(reddit_client_id: str, reddit_client_secret: str, quiver_api_key: str) -> str:
-    """Save Reddit OAuth and Quiver API credentials to config file"""
+def configure(quiver_api_key: str) -> str:
+    """Save Quiver API key to config file"""
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_FILE.write_text(json.dumps({
-        "reddit_client_id": reddit_client_id,
-        "reddit_client_secret": reddit_client_secret,
         "quiver_api_key": quiver_api_key,
     }, indent=2))
     return f"Credentials saved to {CONFIG_FILE}"
-
-
-@mcp.tool()
-def get_reddit_posts(subreddit: str, query: str = None, limit: int = 25, sort: str = "hot") -> str:
-    """
-    Get posts from a subreddit, optionally filtered by search query
-
-    Args:
-        subreddit: e.g. wallstreetbets, stocks, cryptocurrency, investing
-        query: Search terms within the subreddit (optional)
-        limit: Number of posts (default: 25)
-        sort: hot, new, top, rising (default: hot)
-    """
-    try:
-        cfg = load_config()
-        if not cfg["reddit_client_id"] or not cfg["reddit_client_secret"]:
-            return "Reddit credentials not configured. Use configure() tool."
-
-        token = get_reddit_token(cfg["reddit_client_id"], cfg["reddit_client_secret"])
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "financial-research-mcp/1.0",
-        }
-
-        if query:
-            url = f"https://oauth.reddit.com/r/{subreddit}/search"
-            params = {"q": query, "restrict_sr": "true", "sort": sort, "limit": limit}
-        else:
-            url = f"https://oauth.reddit.com/r/{subreddit}/{sort}"
-            params = {"limit": limit}
-
-        r = requests.get(url, headers=headers, params=params, timeout=15)
-        r.raise_for_status()
-        posts = r.json()["data"]["children"]
-
-        lines = [f"=== r/{subreddit} — {sort.upper()}" + (f" [{query}]" if query else "") + " ===\n"]
-        for post in posts:
-            p = post["data"]
-            score = p.get("score", 0)
-            comments = p.get("num_comments", 0)
-            title = p.get("title", "")
-            created = datetime.fromtimestamp(p.get("created_utc", 0), tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
-            body = p.get("selftext", "")[:200].replace("\n", " ")
-            lines.append(f"[{created}] ↑{score} 💬{comments}")
-            lines.append(f"  {title}")
-            if body:
-                lines.append(f"  {body}")
-            lines.append("")
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
-
-
-@mcp.tool()
-def get_reddit_ticker_mentions(ticker: str, subreddits: str = None, hours: int = 24) -> str:
-    """
-    Search for ticker mentions across financial subreddits
-
-    Args:
-        ticker: Stock/crypto ticker (e.g. NVDA, BTC, TSLA)
-        subreddits: Comma-separated list, default: wallstreetbets,stocks,investing
-        hours: Look back this many hours (default: 24)
-    """
-    try:
-        cfg = load_config()
-        if not cfg["reddit_client_id"] or not cfg["reddit_client_secret"]:
-            return "Reddit credentials not configured. Use configure() tool."
-
-        token = get_reddit_token(cfg["reddit_client_id"], cfg["reddit_client_secret"])
-        headers = {
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "financial-research-mcp/1.0",
-        }
-
-        subs = (subreddits or "wallstreetbets,stocks,investing").split(",")
-        query = f"${ticker.upper()} OR {ticker.upper()}"
-        all_posts = []
-
-        for sub in subs:
-            try:
-                r = requests.get(
-                    f"https://oauth.reddit.com/r/{sub.strip()}/search",
-                    headers=headers,
-                    params={"q": query, "restrict_sr": "true", "sort": "new", "limit": 15},
-                    timeout=15,
-                )
-                r.raise_for_status()
-                posts = r.json()["data"]["children"]
-                now = datetime.now(tz=timezone.utc).timestamp()
-                for p in posts:
-                    data = p["data"]
-                    if now - data.get("created_utc", 0) <= hours * 3600:
-                        all_posts.append((sub.strip(), data))
-            except Exception:
-                pass
-
-        lines = [f"=== ${ticker.upper()} Reddit Mentions (last {hours}h) ==="]
-        lines.append(f"Subreddits: {', '.join(subs)}")
-        lines.append(f"Total posts found: {len(all_posts)}\n")
-        for sub, p in sorted(all_posts, key=lambda x: x[1].get("created_utc", 0), reverse=True)[:20]:
-            score = p.get("score", 0)
-            comments = p.get("num_comments", 0)
-            title = p.get("title", "")
-            created = datetime.fromtimestamp(p.get("created_utc", 0), tz=timezone.utc).strftime("%Y-%m-%d %H:%M")
-            lines.append(f"[{created}] r/{sub} ↑{score} 💬{comments}")
-            lines.append(f"  {title}")
-            lines.append("")
-        return "\n".join(lines)
-    except Exception as e:
-        return f"Error: {e}"
 
 
 @mcp.tool()
