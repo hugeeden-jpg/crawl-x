@@ -1,0 +1,3 @@
+mcp[cli]>=1.0.0
+# scrapling installed globally via: uv tool install "scrapling[all]>=0.4.2"
+# Run with: /Users/eden/.local/share/uv/tools/scrapling/bin/python server.py

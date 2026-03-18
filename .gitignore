@@ -1,0 +1,18 @@
+# Local dependencies and reference files
+.depends/
+
+# uv cache and virtual environments
+.venv/
+.cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# macOS
+.DS_Store
+
+# Generated configs (may contain API keys)
+claude_desktop_config.json

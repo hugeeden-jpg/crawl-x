@@ -1,0 +1,267 @@
+---
+name: financial-research-agent
+description: >
+  Master financial research agent with access to stock market data, macroeconomic
+  indicators, social sentiment, crypto/DeFi analytics, SEC filings, and scraped
+  financial data. Use this skill to answer any question about stocks, crypto, macro,
+  Fed policy, insider trading, congressional trades, or market sentiment.
+---
+
+# Financial Research Agent
+
+Full-stack financial research via 6 MCP servers.
+
+## MCP Ecosystem Map
+
+| MCP Server | Data Sources | Use For |
+|------------|-------------|---------|
+| `grok-news` | X/Twitter via Grok | X sentiment, KOL opinions, breaking news |
+| `market-data` | yfinance + Finnhub | Stock quotes, history, financials, earnings |
+| `macro-data` | FRED + SEC EDGAR | Fed rates, CPI, GDP, 13F filings |
+| `sentiment-data` | Reddit + StockTwits + Alternative.me + Quiver | Retail sentiment, Fear/Greed, congressional trades |
+| `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
+| `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch | Insider trades, political trades, rate probabilities |
+
+## Claude Desktop Config
+
+```json
+{
+  "mcpServers": {
+    "grok-news": {
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/grok-mcp/server.py"],
+      "env": {"XAI_API_KEY": "xai-..."}
+    },
+    "market-data": {
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/market-data-mcp/server.py"],
+      "env": {"FINNHUB_API_KEY": "..."}
+    },
+    "macro-data": {
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/macro-mcp/server.py"],
+      "env": {"FRED_API_KEY": "..."}
+    },
+    "sentiment-data": {
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/sentiment-mcp/server.py"],
+      "env": {
+        "REDDIT_CLIENT_ID": "...",
+        "REDDIT_CLIENT_SECRET": "...",
+        "QUIVER_API_KEY": "..."
+      }
+    },
+    "crypto-data": {
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/crypto-mcp/server.py"],
+      "env": {"GLASSNODE_API_KEY": "...", "COINGECKO_API_KEY": ""}
+    },
+    "financial-scraper": {
+      "command": "/Users/eden/.local/share/uv/tools/scrapling/bin/python",
+      "args": ["/Users/eden/crawl-x/scrape-mcp/server.py"]
+    }
+  }
+}
+```
+
+## MCP Decision Tree
+
+**Question type → MCP to use:**
+
+- "What is the stock price / market cap / PE ratio of X?" → `market-data` → `get_quote`, `get_stock_info`
+- "Show me the price history / chart of X" → `market-data` → `get_stock_history`
+- "What do analysts say about X?" → `market-data` → `get_analyst_recommendations`, `get_news_sentiment`
+- "What are the latest earnings for X?" → `market-data` → `get_earnings_calendar`, `get_financials`
+- "What is the Fed doing / interest rates / inflation?" → `macro-data` → `get_key_indicators`, `get_fred_data`
+- "What is X's 10-K / 10-Q / SEC filing?" → `macro-data` → `search_edgar_company`, `get_recent_filings`
+- "Who owns what? What did fund X buy?" → `macro-data` → `get_13f_holdings`
+- "What is Reddit / WSB saying about X?" → `sentiment-data` → `get_reddit_ticker_mentions`, `get_wsb_mentions`
+- "Is the crypto market fearful or greedy?" → `sentiment-data` → `get_fear_greed_index`
+- "What are politicians buying/selling?" → `sentiment-data` → `get_congressional_trades` OR `financial-scraper` → `get_congressional_trades`
+- "What is X trading for? What is Bitcoin doing?" → `crypto-data` → `get_crypto_price`, `get_global_market`
+- "What is DeFi TVL? What is Uniswap's TVL?" → `crypto-data` → `get_defi_tvl_overview`, `get_protocol_tvl`
+- "What are on-chain signals for BTC/ETH?" → `crypto-data` → `get_onchain_metric`, `get_exchange_flows`
+- "What is X trending on Twitter/X?" → `grok-news` → `search_x_news`, `get_ticker_sentiment`
+- "What did Elon/Buffett/[KOL] say recently?" → `grok-news` → `get_kol_mentions`
+- "Are insiders buying or selling X?" → `financial-scraper` → `get_insider_trades`
+- "What are Fed rate hike probabilities?" → `financial-scraper` → `get_fed_rate_probabilities`
+
+## Tools Quick Reference
+
+### grok-news
+| Tool | Description |
+|------|-------------|
+| `search_x_news(query, hours)` | X/Twitter news + web search |
+| `get_ticker_sentiment(ticker, asset_type)` | Sentiment analysis for stock/crypto |
+| `get_financial_news(topic, source)` | Financial news summary |
+| `get_kol_mentions(handle)` | KOL recent posts |
+
+### market-data
+| Tool | Description |
+|------|-------------|
+| `get_quote(ticker)` | Price, change%, vol, mkt cap |
+| `get_stock_info(ticker)` | Profile, PE, EPS, beta |
+| `get_stock_history(ticker, period, interval)` | OHLCV history |
+| `get_financials(ticker, statement)` | income/balance/cashflow |
+| `get_analyst_recommendations(ticker)` | Buy/hold/sell + changes |
+| `get_market_news(category)` | Market news |
+| `get_company_news(ticker, days)` | Company news |
+| `get_earnings_calendar(days_ahead)` | Upcoming earnings |
+| `get_news_sentiment(ticker)` | Finnhub buzz + sentiment |
+
+### macro-data
+| Tool | Description |
+|------|-------------|
+| `get_key_indicators()` | Fed Funds, CPI, GDP, etc. |
+| `search_fred_series(keywords)` | Find FRED series |
+| `get_fred_data(series_id, start, end)` | Any FRED time series |
+| `search_edgar_company(name)` | Get CIK + ticker |
+| `get_recent_filings(ticker_or_cik, form_type)` | List SEC filings |
+| `get_13f_holdings(cik, period)` | Fund holdings |
+| `get_filing_text(accession_number)` | Filing text |
+
+### sentiment-data
+| Tool | Description |
+|------|-------------|
+| `get_reddit_posts(subreddit, query, sort)` | Browse subreddit |
+| `get_reddit_ticker_mentions(ticker, subreddits, hours)` | Cross-sub search |
+| `get_stocktwits_feed(ticker, asset_type)` | Messages + bull/bear |
+| `get_fear_greed_index(days)` | Crypto F&G index |
+| `get_congressional_trades(ticker, days)` | Congress trades (Quiver) |
+| `get_wsb_mentions(ticker)` | WSB mention count |
+| `get_insider_sentiment(ticker)` | Insider buy/sell |
+
+### crypto-data
+| Tool | Description |
+|------|-------------|
+| `get_crypto_price(coin_id)` | Price, change%, cap |
+| `get_crypto_market_data(coin_id)` | ATH, supply, returns |
+| `get_global_market()` | Total cap, BTC dom |
+| `get_trending_coins()` | Top 7 trending |
+| `get_defi_tvl_overview(limit)` | Top protocols by TVL |
+| `get_protocol_tvl(protocol)` | Protocol TVL history |
+| `get_chain_tvl(chain)` | Chain TVL trend |
+| `get_onchain_metric(metric, asset)` | Glassnode metric |
+| `get_exchange_flows(asset)` | Exchange flows |
+
+### financial-scraper
+| Tool | Description |
+|------|-------------|
+| `get_insider_trades(ticker, trade_type, days)` | OpenInsider |
+| `get_congressional_trades(ticker, politician, days)` | Capitol Trades |
+| `get_fed_rate_probabilities()` | CME FedWatch |
+
+## Workflow Patterns
+
+### A: Stock Deep-Dive (e.g. NVDA)
+```
+1. market-data: get_quote("NVDA") — current snapshot
+2. market-data: get_stock_info("NVDA") — fundamentals
+3. market-data: get_stock_history("NVDA", "6mo") — technical context
+4. market-data: get_financials("NVDA") — income statement
+5. market-data: get_analyst_recommendations("NVDA") — consensus
+6. sentiment-data: get_stocktwits_feed("NVDA") — retail mood
+7. sentiment-data: get_reddit_ticker_mentions("NVDA", hours=48) — Reddit buzz
+8. financial-scraper: get_insider_trades("NVDA", "P") — insider buying
+9. grok-news: get_ticker_sentiment("NVDA") — X/Twitter sentiment
+10. market-data: get_company_news("NVDA", days=7) — recent news
+```
+
+### B: Morning Macro Brief
+```
+1. macro-data: get_key_indicators() — overnight rates, CPI, GDP snapshot
+2. macro-data: get_fred_data("T10Y2Y") — yield curve
+3. market-data: get_market_news("general") — overnight news
+4. grok-news: get_financial_news("market open today") — X + web headlines
+5. financial-scraper: get_fed_rate_probabilities() — rate expectations
+```
+
+### C: Crypto Research
+```
+1. crypto-data: get_global_market() — total market cap, BTC dominance
+2. crypto-data: get_crypto_price("bitcoin") — BTC snapshot
+3. crypto-data: get_trending_coins() — what's hot
+4. sentiment-data: get_fear_greed_index(7) — mood over past week
+5. crypto-data: get_onchain_metric("addresses/active_count") — network activity
+6. crypto-data: get_exchange_flows("BTC") — smart money moving in/out
+7. grok-news: get_ticker_sentiment("BTC", "crypto") — X sentiment
+```
+
+### D: Insider / Smart Money Tracking
+```
+1. financial-scraper: get_insider_trades(trade_type="P", days=7) — recent big buys
+2. financial-scraper: get_congressional_trades(days=14) — political trades
+3. sentiment-data: get_congressional_trades(days=30) — Quiver data
+4. sentiment-data: get_insider_sentiment("AAPL") — specific stock
+5. macro-data: get_13f_holdings("0001067983") — Berkshire latest
+```
+
+### E: Earnings Play
+```
+1. market-data: get_earnings_calendar(14) — upcoming earnings
+2. market-data: get_analyst_recommendations("AAPL") — analyst sentiment
+3. market-data: get_news_sentiment("AAPL") — Finnhub buzz score
+4. sentiment-data: get_stocktwits_feed("AAPL") — retail positioning
+5. market-data: get_financials("AAPL", "income") — historical trend
+6. grok-news: search_x_news("$AAPL earnings preview") — X chatter
+```
+
+### F: DeFi Protocol Due Diligence
+```
+1. crypto-data: get_defi_tvl_overview(20) — DeFi landscape
+2. crypto-data: get_protocol_tvl("aave") — specific protocol
+3. crypto-data: get_chain_tvl("ethereum") — underlying chain health
+4. crypto-data: get_crypto_price("ethereum") — ETH context
+5. grok-news: search_x_news("Aave protocol update") — community news
+```
+
+## Rate Limits Reference
+
+| MCP | Source | Free Tier Limit |
+|-----|--------|----------------|
+| market-data | yfinance | Unlimited (15-min delayed) |
+| market-data | Finnhub | 60 calls/minute |
+| macro-data | FRED | 120 calls/minute |
+| macro-data | SEC EDGAR | ~10 calls/second (be polite) |
+| sentiment-data | Reddit | ~60 calls/minute (OAuth) |
+| sentiment-data | StockTwits | ~200 calls/hour |
+| sentiment-data | Alternative.me | No stated limit |
+| sentiment-data | Quiver | Limited/day on free tier |
+| crypto-data | CoinGecko | 30/min (no key) / 500/min (key) |
+| crypto-data | DeFi Llama | Generous, no stated limit |
+| crypto-data | Glassnode | Daily resolution on free tier |
+| grok-news | xAI Grok | Per your API plan |
+
+## Data Freshness
+
+| Source | Freshness |
+|--------|-----------|
+| yfinance | 15-min delayed (US markets) |
+| Finnhub | Real-time (paid) / delayed (free) |
+| FRED | Varies: daily/weekly/monthly/quarterly |
+| StockTwits | Real-time |
+| Reddit | Real-time |
+| Alternative.me Fear/Greed | Updated daily |
+| CoinGecko | ~1-5 min |
+| DeFi Llama | ~1 hour |
+| Glassnode (free) | 24h resolution |
+| OpenInsider | Within 2 business days of SEC filing |
+| Capitol Trades | Within 45 days of transaction |
+| CME FedWatch | Real-time |
+
+## Limitations
+
+- No historical backtesting or strategy simulation
+- No raw tweet data (only Grok-synthesized analysis)
+- Glassnode free tier: limited to ~10 metrics, daily resolution only
+- Scraping targets (OpenInsider, Capitol Trades, CME) may change HTML/API structure
+- EDGAR 13F parsing requires knowing the CIK number
+- yfinance data accuracy not guaranteed; verify critical data with official sources
+
+## Guardrails
+
+- All data is for research purposes only — not a basis for investment decisions
+- Respect rate limits; add delays if running batch queries
+- SEC EDGAR terms: identify yourself in User-Agent (auto-set: `financial-research-mcp/1.0`)
+- Reddit ToS: read-only access, do not spam or scrape user data
+- This research infrastructure does not provide financial advice
