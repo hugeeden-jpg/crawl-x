@@ -160,4 +160,22 @@ document.addEventListener('DOMContentLoaded', () => {
     renderList();
     updateControls();
   });
+
+  document.getElementById('copy-btn').addEventListener('click', async () => {
+    const selected = allCookies.filter(c => c.checked);
+    if (selected.length === 0) return;
+
+    const text = selected.map(c => c.name + '=' + c.value).join('; ');
+    await navigator.clipboard.writeText(text);
+
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('copied');
+
+    if (copyTimer) clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => {
+      btn.classList.remove('copied');
+      updateControls();
+    }, 1500);
+  });
 });
