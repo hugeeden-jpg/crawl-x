@@ -106,7 +106,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "What is the Fed doing / interest rates / inflation?" → `macro-data` → `get_key_indicators`, `get_fred_data`
 - "What is X's 10-K / 10-Q / SEC filing?" → `macro-data` → `search_edgar_company`, `get_recent_filings`
 - "Who owns what? What did fund X buy?" → `macro-data` → `get_13f_holdings`
-- "What is Reddit / WSB saying about X?" → `social-data` → `search_reddit(query, subreddit="wallstreetbets")`
+- "What is Reddit / WSB saying about X?" → `social-data` → `search_reddit(query, subreddit="wallstreetbets")` (not sentiment-data)
 - "Is the crypto market fearful or greedy?" → `sentiment-data` → `get_fear_greed_index`
 - "What are politicians buying/selling?" → `sentiment-data` → `get_congressional_trades` OR `financial-scraper` → `get_congressional_trades`
 - "What is X trading for? What is Bitcoin doing?" → `crypto-data` → `get_crypto_price`, `get_global_market`
