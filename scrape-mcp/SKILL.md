@@ -3,8 +3,8 @@ name: scrape-mcp
 description: >
   Scrape financial data that has no public API: insider stock purchases/sales from
   OpenInsider, congressional stock trades from Capitol Trades, CME FedWatch
-  Fed rate probability distributions, and Circle USDC/EURC reserve transparency data.
-  Uses Scrapling with stealth browser support.
+  Fed rate probability distributions, Circle USDC/EURC reserve transparency data,
+  and The Block crypto news search. Uses Scrapling with stealth browser support.
 ---
 
 # Financial Scraper MCP
@@ -41,6 +41,7 @@ No environment variables required.
 | `get_congressional_trades(ticker, politician, days)` | `StealthyFetcher` + XHR | Capitol Trades: politician stock trades |
 | `get_fed_rate_probabilities()` | `StealthyFetcher` + network interception | CME FedWatch: FOMC rate probabilities |
 | `get_circle_reserves()` | `StealthyFetcher` | Circle: USDC/EURC circulation, reserves, mint/burn flows (7d/30d/365d) |
+| `search_theblock(query, size, fetch_body)` | `requests` (plain JSON API) | The Block: search crypto news articles; optionally fetch full body of first result |
 
 ## Usage Patterns
 
@@ -66,10 +67,17 @@ get_fed_rate_probabilities()
 get_circle_reserves()
 ```
 
+**Crypto news search:**
+```
+search_theblock("USDC stablecoin")
+search_theblock("Bitcoin ETF", fetch_body=True)
+```
+
 ## Notes
 - OpenInsider: plain HTML, fast (~2s); Fetcher (no JS needed)
 - Capitol Trades: React SPA, requires StealthyFetcher (~10-15s)
 - CME FedWatch: Dynamic chart data via XHR; uses network interception pattern from fetch_utxo.py (~15-30s)
 - Circle Transparency: StealthyFetcher + regex parsing; data as of last weekly update (~10s)
+- The Block: plain JSON API (`requests`), fast (~1-2s); `fetch_body=True` adds a second request for full article text
 - Browser launches on each call — expect 5-30s response times
 - Targets may change their HTML structure; if parsing fails, raw text fallback is returned

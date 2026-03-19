@@ -437,5 +437,74 @@ async def get_circle_reserves() -> str:
         return f"Error scraping Circle transparency: {e}"
 
 
+@mcp.tool()
+def search_theblock(query: str, size: int = 10, fetch_body: bool = False, fetch_index: int = 1) -> str:
+    """
+    Search articles on The Block (theblock.co) and optionally fetch full article body.
+
+    Args:
+        query: Search query string
+        size: Number of results to return (default: 10, max: 50)
+        fetch_body: If True, fetch and return the full body of the article at fetch_index (default: False)
+        fetch_index: 1-based index of the article to fetch body for (default: 1 = first result)
+    """
+    try:
+        headers = {"User-Agent": "Mozilla/5.0"}
+        r = requests.get(
+            "https://www.theblock.co/api/tbco/search",
+            params={"query": query, "start": 0, "size": min(size, 50)},
+            headers=headers,
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
+
+        entities = data.get("entities", [])
+        if not entities:
+            return f"No results found for '{query}'"
+
+        lines = [f"=== The Block: '{query}' ({len(entities)} results) ===\n"]
+        lines.append(f"{'#':<3} {'Date':<14} {'Author':<20} {'Title'}")
+        lines.append("-" * 90)
+
+        for i, item in enumerate(entities, 1):
+            title = item.get("title", "")[:50]
+            date = item.get("publishedFormattedMid", "")
+            authors = item.get("authors") or []
+            author = authors[0].get("name", "") if authors else ""
+            lines.append(f"{i:<3} {date:<14} {author[:19]:<20} {title}")
+
+        if fetch_body and entities:
+            idx = max(1, min(fetch_index, len(entities))) - 1
+            first_id = entities[idx].get("id")
+            if first_id:
+                r2 = requests.get(
+                    f"https://www.theblock.co/api/tbco/post/{first_id}",
+                    headers=headers,
+                    timeout=15,
+                )
+                r2.raise_for_status()
+                post_data = r2.json()
+                scripts = post_data.get("data", {}).get("meta", {}).get("script", [])
+                body = ""
+                for s in scripts:
+                    if not isinstance(s, dict):
+                        continue
+                    # articleBody lives inside the nested "json" object
+                    candidate = s.get("json") or s
+                    if isinstance(candidate, dict) and candidate.get("articleBody"):
+                        body = candidate["articleBody"]
+                        break
+                if body:
+                    lines.append(f"\n=== Full Article: {entities[idx].get('title', '')} ===\n")
+                    lines.append(body[:5000] + ("..." if len(body) > 5000 else ""))
+                else:
+                    lines.append("\n[Could not extract article body]")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error searching The Block: {e}"
+
+
 if __name__ == "__main__":
     mcp.run()
