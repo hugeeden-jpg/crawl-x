@@ -3,8 +3,9 @@ name: crypto-mcp
 description: >
   Cryptocurrency market data, DeFi analytics, and on-chain metrics.
   Use for crypto prices, global market overview, trending coins, DeFi protocol TVL,
-  all-chain TVL rankings, stablecoin market data, yield farming pools,
-  chain-level TVL history, Glassnode on-chain metrics (active addresses, SOPR, exchange flows).
+  all-chain TVL rankings, stablecoin market data (list or single-coin detail),
+  yield farming pools, chain-level TVL history, Glassnode on-chain metrics
+  (active addresses, SOPR, exchange flows).
 ---
 
 # Crypto Data MCP
@@ -46,6 +47,7 @@ Claude Desktop config:
 | `get_all_chains(limit)` | No | All blockchains ranked by TVL |
 | `get_chain_tvl(chain)` | No | Single blockchain TVL history (30 days) |
 | `get_stablecoins(limit)` | No | Stablecoin market: supply, peg type, mechanism |
+| `get_stablecoin_detail(coin, chain_limit, history_days)` | No | Single stablecoin: description, chain distribution, supply history |
 | `get_yields(chain, min_tvl, limit)` | No | Top yield/lending pools by APY |
 | `get_onchain_metric(metric, asset, since, until)` | Glassnode | Any Glassnode metric as time series |
 | `get_exchange_flows(asset)` | Glassnode | Exchange inflow/outflow/netflow |

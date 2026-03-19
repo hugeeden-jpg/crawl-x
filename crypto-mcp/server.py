@@ -391,6 +391,86 @@ def get_stablecoins(limit: int = 20) -> str:
 
 
 @mcp.tool()
+def get_stablecoin_detail(coin: str, chain_limit: int = 10, history_days: int = 30) -> str:
+    """
+    Get detailed info for a single stablecoin: description, current chain distribution,
+    and recent supply history. Uses DeFi Llama stablecoins API.
+
+    Args:
+        coin: Name or symbol of the stablecoin (e.g. 'USDC', 'usdt', 'dai')
+        chain_limit: Number of top chains to show in distribution (default: 10)
+        history_days: Days of supply history to show (default: 30)
+    """
+    try:
+        r = requests.get("https://stablecoins.llama.fi/stablecoins", params={"includePrices": "true"}, timeout=15)
+        r.raise_for_status()
+        assets = r.json().get("peggedAssets", [])
+
+        coin_lower = coin.lower()
+        match = next(
+            (a for a in assets if a.get("symbol", "").lower() == coin_lower or a.get("name", "").lower() == coin_lower),
+            None
+        )
+        if not match:
+            available = ", ".join(a.get("symbol", "") for a in assets[:20])
+            return f"Stablecoin '{coin}' not found. Available (top 20): {available}"
+
+        asset_id = match["id"]
+        r2 = requests.get(f"https://stablecoins.llama.fi/stablecoin/{asset_id}", timeout=15)
+        r2.raise_for_status()
+        d = r2.json()
+
+        lines = [f"=== {d.get('name', '')} ({d.get('symbol', '')}) ===\n"]
+
+        # Metadata
+        price = d.get("price")
+        lines.append(f"Peg Type:    {match.get('pegType', 'N/A')}")
+        lines.append(f"Mechanism:   {match.get('pegMechanism', 'N/A')}")
+        lines.append(f"Price:       ${price:.6f}" if price else "Price:       N/A")
+        circ = match.get("circulating", {}).get("peggedUSD", 0) or 0
+        lines.append(f"Circulating: {'${:.2f}B'.format(circ/1e9) if circ >= 1e9 else '${:.1f}M'.format(circ/1e6)}")
+
+        desc = d.get("description", "")
+        if desc:
+            lines.append(f"\nDescription: {desc[:300]}{'...' if len(desc) > 300 else ''}")
+
+        # Chain distribution
+        chain_balances = d.get("currentChainBalances", {})
+        if chain_balances:
+            sorted_chains = sorted(chain_balances.items(), key=lambda x: x[1].get("peggedUSD", 0) or 0, reverse=True)
+            lines.append(f"\n--- Top {min(chain_limit, len(sorted_chains))} Chains ---")
+            lines.append(f"{'Chain':<20} {'Amount':>16} {'Share':>8}")
+            lines.append("-" * 48)
+            for chain_name, bal in sorted_chains[:chain_limit]:
+                amt = bal.get("peggedUSD", 0) or 0
+                share = (amt / circ * 100) if circ else 0
+                amt_str = f"${amt/1e9:.2f}B" if amt >= 1e9 else f"${amt/1e6:.1f}M"
+                lines.append(f"{chain_name[:19]:<20} {amt_str:>16} {share:>7.1f}%")
+
+        # Supply history
+        tokens = d.get("tokens", [])
+        if tokens and history_days > 0:
+            import time
+            cutoff = time.time() - history_days * 86400
+            recent = [t for t in tokens if t.get("date", 0) >= cutoff]
+            if recent:
+                lines.append(f"\n--- Supply History (last {history_days} days) ---")
+                lines.append(f"{'Date':<12} {'Circulating':>16}")
+                lines.append("-" * 30)
+                step = max(1, len(recent) // 10)
+                for t in recent[::step]:
+                    from datetime import datetime, timezone
+                    dt = datetime.fromtimestamp(t["date"], tz=timezone.utc).strftime("%Y-%m-%d")
+                    amt = t.get("circulating", {}).get("peggedUSD", 0) or 0
+                    amt_str = f"${amt/1e9:.2f}B" if amt >= 1e9 else f"${amt/1e6:.1f}M"
+                    lines.append(f"{dt:<12} {amt_str:>16}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
 def get_yields(chain: str = "", min_tvl: float = 1e6, limit: int = 30) -> str:
     """
     Get top yield farming / lending pools from DeFi Llama Yields
