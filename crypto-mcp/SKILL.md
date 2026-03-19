@@ -3,7 +3,8 @@ name: crypto-mcp
 description: >
   Cryptocurrency market data, DeFi analytics, and on-chain metrics.
   Use for crypto prices, global market overview, trending coins, DeFi protocol TVL,
-  chain-level TVL, Glassnode on-chain metrics (active addresses, SOPR, exchange flows).
+  all-chain TVL rankings, stablecoin market data, yield farming pools,
+  chain-level TVL history, Glassnode on-chain metrics (active addresses, SOPR, exchange flows).
 ---
 
 # Crypto Data MCP
@@ -42,7 +43,10 @@ Claude Desktop config:
 | `get_trending_coins()` | No | Top 7 trending (most searched) |
 | `get_defi_tvl_overview(limit)` | No | Top DeFi protocols by TVL |
 | `get_protocol_tvl(protocol)` | No | Protocol TVL history + chain breakdown |
-| `get_chain_tvl(chain)` | No | Blockchain TVL trend |
+| `get_all_chains(limit)` | No | All blockchains ranked by TVL |
+| `get_chain_tvl(chain)` | No | Single blockchain TVL history (30 days) |
+| `get_stablecoins(limit)` | No | Stablecoin market: supply, peg type, mechanism |
+| `get_yields(chain, min_tvl, limit)` | No | Top yield/lending pools by APY |
 | `get_onchain_metric(metric, asset, since, until)` | Glassnode | Any Glassnode metric as time series |
 | `get_exchange_flows(asset)` | Glassnode | Exchange inflow/outflow/netflow |
 
@@ -69,6 +73,19 @@ Claude Desktop config:
 | `indicators/nupl` | Net Unrealized Profit/Loss |
 | `supply/current` | Current circulating supply |
 | `mining/hash_rate_mean` | Hash rate |
+
+## get_yields parameters
+
+| Param | Default | Description |
+|-------|---------|-------------|
+| `chain` | `""` | Filter by chain (e.g. `ethereum`, `arbitrum`, `solana`) — empty = all chains |
+| `min_tvl` | `1000000` | Minimum pool TVL in USD |
+| `limit` | `30` | Number of results |
+
+## DeFi Llama API subdomains
+- `api.llama.fi` — TVL, protocols, chains
+- `yields.llama.fi` — yield pools (`get_yields`)
+- `stablecoins.llama.fi` — stablecoin data (`get_stablecoins`)
 
 ## Notes
 - CoinGecko free tier: 30 calls/min (key adds to 500/min)

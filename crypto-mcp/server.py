@@ -333,6 +333,101 @@ def get_chain_tvl(chain: str) -> str:
 
 
 @mcp.tool()
+def get_all_chains(limit: int = 30) -> str:
+    """
+    List all blockchains ranked by Total Value Locked (TVL) from DeFi Llama
+
+    Args:
+        limit: Number of chains to show (default: 30)
+    """
+    try:
+        r = requests.get(f"{DEFILLAMA_BASE}/v2/chains", timeout=15)
+        r.raise_for_status()
+        chains = [c for c in r.json() if c is not None]
+        chains_sorted = sorted(chains, key=lambda x: x.get("tvl") or 0, reverse=True)
+
+        lines = ["=== All Chains TVL (DeFi Llama) ===\n"]
+        lines.append(f"{'#':<4} {'Chain':<20} {'TVL':>14} {'Symbol':<8}")
+        lines.append("-" * 50)
+        for i, c in enumerate(chains_sorted[:limit], 1):
+            name = c.get("name", "")[:19]
+            tvl = c.get("tvl", 0) or 0
+            symbol = (c.get("tokenSymbol") or "")[:7]
+            tvl_str = f"${tvl/1e9:.3f}B" if tvl >= 1e9 else f"${tvl/1e6:.1f}M"
+            lines.append(f"{i:<4} {name:<20} {tvl_str:>14} {symbol:<8}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_stablecoins(limit: int = 20) -> str:
+    """
+    Get stablecoin market data: circulating supply, peg type, and peg mechanism
+
+    Args:
+        limit: Number of stablecoins to show (default: 20)
+    """
+    try:
+        r = requests.get("https://stablecoins.llama.fi/stablecoins", params={"includePrices": "true"}, timeout=15)
+        r.raise_for_status()
+        assets = r.json().get("peggedAssets", [])
+        assets_sorted = sorted(assets, key=lambda x: x.get("circulating", {}).get("peggedUSD", 0) or 0, reverse=True)
+
+        lines = ["=== Stablecoin Market (DeFi Llama) ===\n"]
+        lines.append(f"{'#':<4} {'Name':<18} {'Symbol':<8} {'Circulating':>16} {'Peg Type':<16} {'Mechanism'}")
+        lines.append("-" * 80)
+        for i, a in enumerate(assets_sorted[:limit], 1):
+            name = a.get("name", "")[:17]
+            symbol = a.get("symbol", "")[:7]
+            circ = a.get("circulating", {}).get("peggedUSD", 0) or 0
+            peg_type = a.get("pegType", "")[:15]
+            mechanism = a.get("pegMechanism", "")[:12]
+            circ_str = f"${circ/1e9:.2f}B" if circ >= 1e9 else f"${circ/1e6:.1f}M"
+            lines.append(f"{i:<4} {name:<18} {symbol:<8} {circ_str:>16} {peg_type:<16} {mechanism}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_yields(chain: str = "", min_tvl: float = 1e6, limit: int = 30) -> str:
+    """
+    Get top yield farming / lending pools from DeFi Llama Yields
+
+    Args:
+        chain: Filter by chain name (e.g. ethereum, arbitrum) — empty for all chains
+        min_tvl: Minimum TVL in USD to include (default: 1,000,000)
+        limit: Number of pools to show (default: 30)
+    """
+    try:
+        r = requests.get("https://yields.llama.fi/pools", timeout=20)
+        r.raise_for_status()
+        pools = r.json().get("data", [])
+
+        if chain:
+            pools = [p for p in pools if p.get("chain", "").lower() == chain.lower()]
+        pools = [p for p in pools if (p.get("tvlUsd") or 0) >= min_tvl]
+        pools_sorted = sorted(pools, key=lambda x: x.get("apy") or 0, reverse=True)
+
+        lines = [f"=== Top Yield Pools{' on ' + chain.capitalize() if chain else ''} (DeFi Llama) ===\n"]
+        lines.append(f"{'#':<4} {'Project':<16} {'Symbol':<18} {'Chain':<12} {'TVL':>12} {'APY':>8}")
+        lines.append("-" * 76)
+        for i, p in enumerate(pools_sorted[:limit], 1):
+            project = p.get("project", "")[:15]
+            symbol = p.get("symbol", "")[:17]
+            p_chain = p.get("chain", "")[:11]
+            tvl = p.get("tvlUsd") or 0
+            apy = p.get("apy")
+            tvl_str = f"${tvl/1e9:.2f}B" if tvl >= 1e9 else f"${tvl/1e6:.1f}M"
+            apy_str = f"{apy:.2f}%" if apy is not None else "N/A"
+            lines.append(f"{i:<4} {project:<16} {symbol:<18} {p_chain:<12} {tvl_str:>12} {apy_str:>8}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
 def get_onchain_metric(metric: str, asset: str = "BTC", since: str = None, until: str = None) -> str:
     """
     Get on-chain metrics from Glassnode (requires API key)
