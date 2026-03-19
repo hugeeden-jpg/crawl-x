@@ -65,12 +65,12 @@ bash install.sh --desktop
 | `QUIVER_API_KEY` | sentiment-mcp | [quiverquant.com](https://www.quiverquant.com) |
 | `COINGECKO_API_KEY` | crypto-mcp | [coingecko.com/api](https://www.coingecko.com/en/api) |
 | `GLASSNODE_API_KEY` | crypto-mcp | [glassnode.com](https://glassnode.com) |
-| `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie（Cookie-Editor → `auth_token`） |
-| `TWITTER_CT0` | social-mcp | x.com cookie（Cookie-Editor → `ct0`） |
+| `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie（Cookie Picker 扩展 → `auth_token`） |
+| `TWITTER_CT0` | social-mcp | x.com cookie（Cookie Picker 扩展 → `ct0`） |
 
 Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 工具在之后配置。
 
-> **Twitter Cookie 配置：** 安装 [Cookie-Editor](https://cookie-editor.com/) 浏览器扩展，登录 x.com，复制 `auth_token` 和 `ct0` 的 cookie 值，然后在 Claude 中调用 `configure_twitter(auth_token=..., ct0=...)` 即可。
+> **Twitter Cookie 配置：** 使用本项目内置的 **Cookie Picker** Chrome 扩展（`extensions/cookie-picker/`）——在 Chrome 中以"加载已解压的扩展程序"方式安装，打开 x.com，点击插件图标，`auth_token` 和 `ct0` 已默认勾选，点击"Copy selected"复制后粘贴到 `configure_twitter(auth_token=..., ct0=...)` 即可。
 
 ---
 

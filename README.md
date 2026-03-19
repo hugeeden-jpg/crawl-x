@@ -65,12 +65,12 @@ bash install.sh --desktop
 | `QUIVER_API_KEY` | sentiment-mcp | [quiverquant.com](https://www.quiverquant.com) |
 | `COINGECKO_API_KEY` | crypto-mcp | [coingecko.com/api](https://www.coingecko.com/en/api) |
 | `GLASSNODE_API_KEY` | crypto-mcp | [glassnode.com](https://glassnode.com) |
-| `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie (Cookie-Editor → `auth_token`) |
-| `TWITTER_CT0` | social-mcp | x.com cookie (Cookie-Editor → `ct0`) |
+| `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie (Cookie Picker extension → `auth_token`) |
+| `TWITTER_CT0` | social-mcp | x.com cookie (Cookie Picker extension → `ct0`) |
 
 Keys can be passed during `install.sh` or configured later via each MCP's `configure()` tool.
 
-> **Twitter cookie setup:** Install the [Cookie-Editor](https://cookie-editor.com/) browser extension, log in to x.com, and copy the `auth_token` and `ct0` cookie values. Then run `configure_twitter(auth_token=..., ct0=...)` in Claude, or pass them as env vars to `install.sh`.
+> **Twitter cookie setup:** Use the **Cookie Picker** Chrome extension included in this repo (`extensions/cookie-picker/`) — load it unpacked in Chrome, navigate to x.com, open the popup, and `auth_token` + `ct0` are pre-selected. Click "Copy selected" and paste the values into `configure_twitter(auth_token=..., ct0=...)` in Claude, or pass them as env vars to `install.sh`.
 
 ---
 
