@@ -19,14 +19,14 @@ uv tool install "scrapling[all]>=0.4.2"
 scrapling install  # installs Playwright browsers
 ```
 
-`mcp[cli]` is declared inline (PEP 723) and resolved by Scrapling's own Python env.
+Dependencies are declared inline (PEP 723) — `uv run` installs them automatically.
 
-**IMPORTANT:** Must use Scrapling's uv-managed Python (has all [all] extras + curl_cffi):
+Claude Desktop config:
 ```json
 {
   "financial-scraper": {
-    "command": "/Users/eden/.local/share/uv/tools/scrapling/bin/python",
-    "args": ["/Users/eden/crawl-x/scrape-mcp/server.py"]
+    "command": "uv",
+    "args": ["run", "/Users/eden/crawl-x/scrape-mcp/server.py"]
   }
 }
 ```
@@ -41,7 +41,7 @@ No environment variables required.
 | `get_congressional_trades(ticker, politician, days)` | `StealthyFetcher` + XHR | Capitol Trades: politician stock trades |
 | `get_fed_rate_probabilities()` | `StealthyFetcher` + network interception | CME FedWatch: FOMC rate probabilities |
 | `get_circle_reserves()` | `StealthyFetcher` | Circle: USDC/EURC circulation, reserves, mint/burn flows (7d/30d/365d) |
-| `search_theblock(query, size, fetch_body)` | `requests` (plain JSON API) | The Block: search crypto news articles; optionally fetch full body of first result |
+| `search_theblock(query, size, fetch_body, fetch_index)` | `requests` (plain JSON API) | The Block: search crypto news articles; optionally fetch full body of any result by index |
 
 ## Usage Patterns
 

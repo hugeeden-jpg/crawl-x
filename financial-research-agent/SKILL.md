@@ -54,8 +54,8 @@ Full-stack financial research via 7 MCP servers.
       "env": {"GLASSNODE_API_KEY": "...", "COINGECKO_API_KEY": ""}
     },
     "financial-scraper": {
-      "command": "/Users/eden/.local/share/uv/tools/scrapling/bin/python",
-      "args": ["/Users/eden/crawl-x/scrape-mcp/server.py"]
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/scrape-mcp/server.py"]
     },
     "social-data": {
       "command": "uv",
@@ -91,6 +91,12 @@ Full-stack financial research via 7 MCP servers.
 - "What is the overall X sentiment narrative?" → `grok-news` → `search_x_news`, `get_ticker_sentiment` (needs XAI key)
 - "Are insiders buying or selling X?" → `financial-scraper` → `get_insider_trades`
 - "What are Fed rate hike probabilities?" → `financial-scraper` → `get_fed_rate_probabilities`
+- "What are USDC/EURC reserves? Circle transparency?" → `financial-scraper` → `get_circle_reserves`
+- "Find The Block articles about X / crypto news?" → `financial-scraper` → `search_theblock`
+- "What is the stablecoin market? USDT vs USDC supply?" → `crypto-data` → `get_stablecoins`
+- "USDC chain distribution / supply history?" → `crypto-data` → `get_stablecoin_detail`
+- "What are the best DeFi yields / lending rates?" → `crypto-data` → `get_yields`
+- "All chains TVL ranking?" → `crypto-data` → `get_all_chains`
 - "Get the earnings call transcript for X" → `social-data` → `search_youtube(query)` → `get_video_transcript(url)`
 
 ## Tools Quick Reference
@@ -132,7 +138,6 @@ Full-stack financial research via 7 MCP servers.
 |------|-------------|
 | `get_reddit_posts(subreddit, query, sort)` | Browse subreddit |
 | `get_reddit_ticker_mentions(ticker, subreddits, hours)` | Cross-sub search |
-| `get_stocktwits_feed(ticker, asset_type)` | Messages + bull/bear |
 | `get_fear_greed_index(days)` | Crypto F&G index |
 | `get_congressional_trades(ticker, days)` | Congress trades (Quiver) |
 | `get_wsb_mentions(ticker)` | WSB mention count |
@@ -147,7 +152,11 @@ Full-stack financial research via 7 MCP servers.
 | `get_trending_coins()` | Top 7 trending |
 | `get_defi_tvl_overview(limit)` | Top protocols by TVL |
 | `get_protocol_tvl(protocol)` | Protocol TVL history |
-| `get_chain_tvl(chain)` | Chain TVL trend |
+| `get_all_chains(limit)` | All chains ranked by TVL |
+| `get_chain_tvl(chain)` | Chain TVL trend (30d) |
+| `get_stablecoins(limit)` | Stablecoin market: supply, peg type, mechanism |
+| `get_stablecoin_detail(coin, chain_limit, history_days)` | Single stablecoin: chain distribution, supply history |
+| `get_yields(chain, min_tvl, limit)` | Top yield/lending pools by APY |
 | `get_onchain_metric(metric, asset)` | Glassnode metric |
 | `get_exchange_flows(asset)` | Exchange flows |
 
@@ -157,6 +166,8 @@ Full-stack financial research via 7 MCP servers.
 | `get_insider_trades(ticker, trade_type, days)` | OpenInsider |
 | `get_congressional_trades(ticker, politician, days)` | Capitol Trades |
 | `get_fed_rate_probabilities()` | CME FedWatch |
+| `get_circle_reserves()` | Circle: USDC/EURC circulation, reserves, mint/burn flows |
+| `search_theblock(query, size, fetch_body, fetch_index)` | The Block: crypto news search + full article body |
 
 ### social-data
 | Tool | Description |
