@@ -20,7 +20,7 @@ Full-stack financial research via 7 MCP servers.
 | `macro-data` | FRED + SEC EDGAR | Fed rates, CPI, GDP, 13F filings |
 | `sentiment-data` | Alternative.me + Quiver | Fear/Greed, congressional trades, insider sentiment |
 | `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
-| `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch | Insider trades, political trades, rate probabilities |
+| `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch + Circle + The Block | Insider trades, political trades, rate probabilities, USDC reserves, crypto news |
 | `social-data` | Reddit (public JSON) + Twitter/X (xreach) + YouTube (yt-dlp) | Raw social posts, WSB, KOL timelines, earnings transcripts |
 
 ## API Key Configuration
@@ -162,8 +162,6 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 ### sentiment-data
 | Tool | Description |
 |------|-------------|
-| `get_reddit_posts(subreddit, query, sort)` | Browse subreddit |
-| `get_reddit_ticker_mentions(ticker, subreddits, hours)` | Cross-sub search |
 | `get_fear_greed_index(days)` | Crypto F&G index |
 | `get_congressional_trades(ticker, days)` | Congress trades (Quiver) |
 | `get_wsb_mentions(ticker)` | WSB mention count |
