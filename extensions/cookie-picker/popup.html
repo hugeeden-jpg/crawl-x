@@ -5,6 +5,47 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
+  <div id="app">
+    <!-- Header -->
+    <div id="header">
+      <span id="title">Cookie Picker</span>
+      <span id="hostname"></span>
+    </div>
+
+    <!-- Error state (hidden by default) -->
+    <div id="error" class="hidden">
+      <span id="error-message"></span>
+    </div>
+
+    <!-- Main content (hidden when error shown) -->
+    <div id="content">
+      <!-- Search -->
+      <div id="search-wrap">
+        <input id="search" type="text" placeholder="Search key..." autocomplete="off" spellcheck="false">
+      </div>
+
+      <!-- Select all -->
+      <div id="select-all-wrap">
+        <label id="select-all-label">
+          <input id="select-all" type="checkbox">
+          <span id="select-all-text">Select all</span>
+          <span id="count"></span>
+        </label>
+      </div>
+
+      <!-- Cookie list -->
+      <div id="list-wrap">
+        <div id="cookie-list"></div>
+        <div id="empty-search" class="hidden">No cookies match</div>
+      </div>
+
+      <!-- Copy button -->
+      <div id="footer">
+        <button id="copy-btn" disabled>Copy selected</button>
+      </div>
+    </div>
+  </div>
+
   <script src="popup.js"></script>
 </body>
 </html>
