@@ -12,7 +12,7 @@
 | `macro-mcp` | `macro-data` | FRED 经济数据、SEC EDGAR 文件 | FRED（必须） |
 | `crypto-mcp` | `crypto-data` | CoinGecko 价格、DeFi TVL、Glassnode 链上数据 | 可选 |
 | `sentiment-mcp` | `sentiment-data` | 恐慌贪婪指数、国会/内部人情绪（Quiver） | 可选 |
-| `scrape-mcp` | `financial-scraper` | OpenInsider 内部人交易、Capitol Trades、CME FedWatch | 无需 |
+| `scrape-mcp` | `financial-scraper` | OpenInsider 内部人交易、Capitol Trades、CME FedWatch、Circle 储备透明度、The Block 新闻 | 无需 |
 | `grok-mcp` | `grok-news` | 通过 Grok AI 获取 X/Twitter 新闻与情绪分析 | XAI（可选） |
 | `social-mcp` | `social-data` | Reddit（公开）、Twitter/X（xreach）、YouTube（yt-dlp） | 可选 |
 
@@ -20,17 +20,13 @@
 
 ## 前置条件
 
-**1. 安装 [uv](https://docs.astral.sh/uv/getting-started/installation/)**
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**2. 安装 [Claude Code](https://claude.ai/code)**（CLI 使用）
+**[Claude Code](https://claude.ai/code)**（CLI 使用）— 需手动安装：
 
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
+
+**[uv](https://docs.astral.sh/uv/getting-started/installation/)** — macOS/Linux 下 `install.sh` 会自动安装；Windows 用户请提前手动安装。
 
 ---
 
@@ -43,10 +39,11 @@ bash install.sh
 ```
 
 脚本会自动完成以下操作：
-- 检查 `uv` 和 `claude` CLI 是否已安装
-- 安装 Scrapling（`scrape-mcp` 抓取 Capitol Trades 和 CME FedWatch 所需）
-- 提示输入 API Key（可直接回车跳过可选项）
-- 通过 `claude mcp add` 注册所有 MCP 到 Claude CLI
+- macOS/Linux 下自动安装 `uv`（若未检测到）
+- 安装 Scrapling + Playwright 浏览器（`scrape-mcp` 抓取 Capitol Trades 和 CME FedWatch 所需）
+- 自动安装 `yt-dlp`（`social-mcp` YouTube 工具所需）
+- 提示输入 API Key — **回车可保留已有值**
+- 通过 `claude mcp add` 注册全部 7 个 MCP 到 Claude CLI
 
 同时生成 Claude Desktop 配置文件：
 
@@ -125,7 +122,11 @@ Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 
 | `get_trending_coins` | CoinGecko 热门币种 |
 | `get_defi_tvl_overview` | TVL 排名前列的 DeFi 协议 |
 | `get_protocol_tvl` | 指定协议的 TVL 历史与跨链分布 |
-| `get_chain_tvl` | 指定链的 TVL 趋势 |
+| `get_all_chains` | 全部公链 TVL 排名 |
+| `get_chain_tvl` | 指定链的 TVL 趋势（30 天） |
+| `get_stablecoins` | 稳定币市场：供应量、锚定类型、机制 |
+| `get_stablecoin_detail` | 单一稳定币详情：跨链分布、供应历史 |
+| `get_yields` | DeFi 最高 APY 收益/借贷池 |
 | `get_onchain_metric` | Glassnode 链上指标（需 Key） |
 | `get_exchange_flows` | 交易所资金流入/流出（需 Key） |
 
@@ -143,6 +144,8 @@ Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 
 | `get_insider_trades` | OpenInsider SEC Form 4 交易（无需 Key，约 2s） |
 | `get_congressional_trades` | Capitol Trades 国会实时交易（约 15s） |
 | `get_fed_rate_probabilities` | CME FedWatch FOMC 利率概率（约 14s） |
+| `get_circle_reserves` | Circle USDC/EURC 流通量、储备构成、铸造/赎回流量（约 10s） |
+| `search_theblock(query, size, fetch_body, fetch_index)` | The Block 加密新闻搜索，可按序号获取正文（约 1-2s） |
 
 ### grok-news
 | 工具 | 功能 |
