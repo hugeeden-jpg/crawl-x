@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Cookie Picker",
+  "version": "1.0.0",
+  "description": "Select and copy cookies as key=value strings",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Cookie Picker"
+  },
+  "permissions": ["cookies", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "web_accessible_resources": [
+    {
+      "resources": ["config.json"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

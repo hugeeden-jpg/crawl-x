@@ -1,0 +1,6 @@
+{
+  "defaults": {
+    "x.com": ["auth_token", "ct0"],
+    "twitter.com": ["auth_token", "ct0"]
+  }
+}
