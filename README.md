@@ -20,17 +20,13 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 
 ## Prerequisites
 
-**1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/)**
-
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-**2. Install [Claude Code](https://claude.ai/code)** (for CLI usage)
+**[Claude Code](https://claude.ai/code)** (for CLI usage) — must be installed manually:
 
 ```bash
 npm install -g @anthropic-ai/claude-code
 ```
+
+**[uv](https://docs.astral.sh/uv/getting-started/installation/)** — auto-installed by `install.sh` if missing (macOS/Linux). On Windows, install manually first.
 
 ---
 
@@ -43,10 +39,11 @@ bash install.sh
 ```
 
 The script will:
-- Check that `uv` and `claude` CLI are available
-- Install Scrapling (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
-- Prompt for API keys (press Enter to skip optional ones)
-- Register all MCPs to Claude CLI via `claude mcp add`
+- Auto-install `uv` if missing (macOS/Linux via official script)
+- Install Scrapling + Playwright browsers (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
+- Auto-install `yt-dlp` if missing (required by `social-mcp` for YouTube)
+- Prompt for API keys — **press Enter to keep any already-configured value**
+- Register all 7 MCPs to Claude CLI via `claude mcp add`
 
 To also generate a `claude_desktop_config.json` for Claude Desktop:
 
