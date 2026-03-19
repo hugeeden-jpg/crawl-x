@@ -23,6 +23,32 @@ Full-stack financial research via 7 MCP servers.
 | `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch | Insider trades, political trades, rate probabilities |
 | `social-data` | Reddit (public JSON) + Twitter/X (xreach) + YouTube (yt-dlp) | Raw social posts, WSB, KOL timelines, earnings transcripts |
 
+## API Key Configuration
+
+All API keys are stored in `~/.config/<mcp>/config.json`. Use the `configure()` tool of each MCP, or run `bash ~/crawl-x/install.sh` to set them interactively.
+
+| MCP | Key | Config File | Required | Get It |
+|-----|-----|-------------|----------|--------|
+| `macro-data` | `fred_api_key` | `~/.config/macro-mcp/config.json` | **Required** | https://fred.stlouisfed.org/docs/api/api_key.html |
+| `market-data` | `finnhub_api_key` | `~/.config/market-data-mcp/config.json` | Optional | https://finnhub.io/register |
+| `grok-news` | `api_key` (XAI) | `~/.config/grok-mcp/config.json` | Optional | https://console.x.ai/ |
+| `sentiment-data` | `quiver_api_key` | `~/.config/sentiment-mcp/config.json` | Optional | https://www.quiverquant.com/quiverapi/ |
+| `crypto-data` | `coingecko_api_key` | `~/.config/crypto-mcp/config.json` | Optional | https://www.coingecko.com/en/api |
+| `crypto-data` | `glassnode_api_key` | `~/.config/crypto-mcp/config.json` | Optional | https://glassnode.com |
+| `social-data` | `auth_token` + `ct0` | `~/.config/social-mcp/config.json` | Optional | Twitter cookies (xreach: `npm install -g xreach-cli`) |
+
+**Without any keys:** `macro-data` (FRED) is the only hard requirement. `crypto-data`, `financial-scraper`, and `social-data` (Reddit/YouTube) all work without keys.
+
+**Quick config via tool call:**
+```
+macro-data:     configure(fred_api_key="...")
+market-data:    configure(finnhub_api_key="...")
+grok-news:      configure(api_key="xai-...")
+sentiment-data: configure(quiver_api_key="...")
+crypto-data:    configure(coingecko_api_key="...", glassnode_api_key="...")
+social-data:    configure_twitter(auth_token="...", ct0="...")
+```
+
 ## Claude Desktop Config
 
 ```json
