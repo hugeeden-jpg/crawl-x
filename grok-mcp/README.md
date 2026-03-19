@@ -4,9 +4,11 @@
 
 ## 安装
 
+依赖通过 PEP 723 内联声明，`uv run` 会自动安装，无需手动操作。
+
 ```bash
-cd grok-mcp
-pip install -r requirements.txt
+# 直接运行即可（依赖自动安装）
+uv run /path/to/crawl-x/grok-mcp/server.py
 ```
 
 ## 配置 API Key
@@ -35,8 +37,8 @@ xAI API Key 申请地址：https://console.x.ai
 {
   "mcpServers": {
     "grok-news": {
-      "command": "python",
-      "args": ["/Users/eden/crawl-x/grok-mcp/server.py"],
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/grok-mcp/server.py"],
       "env": {
         "XAI_API_KEY": "xai-xxxxxxxxxxxxxxxx"
       }
