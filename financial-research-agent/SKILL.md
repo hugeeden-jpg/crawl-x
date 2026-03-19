@@ -35,7 +35,7 @@ All API keys are stored in `~/.config/<mcp>/config.json`. Use the `configure()` 
 | `sentiment-data` | `quiver_api_key` | `~/.config/sentiment-mcp/config.json` | Optional | https://www.quiverquant.com/quiverapi/ |
 | `crypto-data` | `coingecko_api_key` | `~/.config/crypto-mcp/config.json` | Optional | https://www.coingecko.com/en/api |
 | `crypto-data` | `glassnode_api_key` | `~/.config/crypto-mcp/config.json` | Optional | https://glassnode.com |
-| `social-data` | `auth_token` + `ct0` | `~/.config/social-mcp/config.json` | Optional | Twitter cookies (xreach: `npm install -g xreach-cli`) |
+| `social-data` | `auth_token` + `ct0` | `~/.config/social-mcp/config.json` | Optional | x.com cookies — use **Cookie Picker** extension (`extensions/cookie-picker/`), load unpacked in Chrome, open on x.com, `auth_token` + `ct0` are pre-selected; also install xreach: `npm install -g xreach-cli` |
 
 **Without any keys:** `macro-data` (FRED) is the only hard requirement. `crypto-data`, `financial-scraper`, and `social-data` (Reddit/YouTube) all work without keys.
 
