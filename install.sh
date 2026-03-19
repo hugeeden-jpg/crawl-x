@@ -162,38 +162,56 @@ prompt_key GLASSNODE_API_KEY  "GLASSNODE_API_KEY    (crypto, optional)     " "$_
 prompt_key TWITTER_AUTH_TOKEN "TWITTER_AUTH_TOKEN   (social, optional)     " "$_TW_AUTH_EXIST"
 prompt_key TWITTER_CT0        "TWITTER_CT0          (social, optional)     " "$_TW_CT0_EXIST"
 
+# ── write API keys to each MCP's config file ─────────────────────────────────
+
+echo ""
+echo "─── Saving API keys to config files ──────────────────────────────────────"
+
+# Write a JSON config file, merging new non-empty values over any existing ones
+write_config() {
+  local file="$1"; shift   # remaining args: key=value pairs
+  python3 - "$file" "$@" <<'PY'
+import json, sys, pathlib
+path = pathlib.Path(sys.argv[1])
+path.parent.mkdir(parents=True, exist_ok=True)
+cfg = json.loads(path.read_text()) if path.exists() else {}
+for pair in sys.argv[2:]:
+    k, v = pair.split("=", 1)
+    if v:           # only overwrite when a value was provided
+        cfg[k] = v
+path.write_text(json.dumps(cfg, indent=2))
+PY
+}
+
+write_config "$HOME/.config/grok-mcp/config.json"          "api_key=$XAI_API_KEY"
+write_config "$HOME/.config/market-data-mcp/config.json"   "finnhub_api_key=$FINNHUB_API_KEY"
+write_config "$HOME/.config/macro-mcp/config.json"         "fred_api_key=$FRED_API_KEY"
+write_config "$HOME/.config/sentiment-mcp/config.json"     "quiver_api_key=$QUIVER_API_KEY"
+write_config "$HOME/.config/crypto-mcp/config.json"        "coingecko_api_key=$COINGECKO_API_KEY" \
+                                                            "glassnode_api_key=$GLASSNODE_API_KEY"
+write_config "$HOME/.config/social-mcp/config.json"        "auth_token=$TWITTER_AUTH_TOKEN" \
+                                                            "ct0=$TWITTER_CT0"
+ok "Config files updated"
+
 # ── register MCPs ─────────────────────────────────────────────────────────────
 
 echo ""
 echo "─── Registering MCPs ──────────────────────────────────────────────────────"
 
 register() {
-  local name="$1"
-  local script="$2"
-  shift 2
+  local name="$1" script="$2"
   claude mcp remove "$name" 2>/dev/null || true
-  # $@ contains pre-built -e KEY=VAL pairs; name comes first, then flags, then -- cmd
-  claude mcp add "$name" "$@" -- uv run "$REPO_DIR/$script"
+  claude mcp add "$name" -- uv run "$REPO_DIR/$script"
   ok "Registered: $name"
 }
 
-# Build -e KEY=VAL args, skipping empty values
-e() { [[ -n "$2" ]] && printf -- '-e\n%s=%s\n' "$1" "$2"; }
-
-mapfile -t grok_env    < <(e XAI_API_KEY        "$XAI_API_KEY")
-mapfile -t market_env  < <(e FINNHUB_API_KEY    "$FINNHUB_API_KEY")
-mapfile -t crypto_env  < <(e COINGECKO_API_KEY  "$COINGECKO_API_KEY"; e GLASSNODE_API_KEY "$GLASSNODE_API_KEY")
-mapfile -t macro_env   < <(e FRED_API_KEY        "$FRED_API_KEY")
-mapfile -t quiver_env  < <(e QUIVER_API_KEY      "$QUIVER_API_KEY")
-mapfile -t social_env  < <(e TWITTER_AUTH_TOKEN  "$TWITTER_AUTH_TOKEN"; e TWITTER_CT0 "$TWITTER_CT0")
-
-register "grok-news"         "grok-mcp/server.py"         "${grok_env[@]}"
-register "market-data"       "market-data-mcp/server.py"  "${market_env[@]}"
-register "crypto-data"       "crypto-mcp/server.py"       "${crypto_env[@]}"
-register "macro-data"        "macro-mcp/server.py"        "${macro_env[@]}"
-register "sentiment-data"    "sentiment-mcp/server.py"    "${quiver_env[@]}"
+register "grok-news"         "grok-mcp/server.py"
+register "market-data"       "market-data-mcp/server.py"
+register "crypto-data"       "crypto-mcp/server.py"
+register "macro-data"        "macro-mcp/server.py"
+register "sentiment-data"    "sentiment-mcp/server.py"
 register "financial-scraper" "scrape-mcp/server.py"
-register "social-data"       "social-mcp/server.py"       "${social_env[@]}"
+register "social-data"       "social-mcp/server.py"
 
 # ── optionally generate Claude Desktop config ─────────────────────────────────
 
@@ -201,58 +219,18 @@ if $DESKTOP_MODE; then
   echo ""
   echo "─── Generating claude_desktop_config.json ─────────────────────────────────"
 
-  # Build {"KEY":"VAL",...} object, skipping empty values
-  env_obj() {
-    local pairs=()
-    for pair in "$@"; do
-      local key="${pair%%=*}"; local val="${pair#*=}"
-      [[ -n "$val" ]] && pairs+=("\"$key\": \"$val\"")
-    done
-    if [[ ${#pairs[@]} -eq 0 ]]; then
-      echo "{}"
-    else
-      local IFS=','; echo "{${pairs[*]}}"
-    fi
-  }
-
+  # API keys are stored in ~/.config/<mcp>/config.json by write_config above.
+  # No env vars needed in the Desktop config.
   cat > "$REPO_DIR/claude_desktop_config.json" <<JSON
 {
   "mcpServers": {
-    "grok-news": {
-      "command": "uv",
-      "args": ["run", "$REPO_DIR/grok-mcp/server.py"],
-      "env": $(env_obj "XAI_API_KEY=$XAI_API_KEY")
-    },
-    "market-data": {
-      "command": "uv",
-      "args": ["run", "$REPO_DIR/market-data-mcp/server.py"],
-      "env": $(env_obj "FINNHUB_API_KEY=$FINNHUB_API_KEY")
-    },
-    "crypto-data": {
-      "command": "uv",
-      "args": ["run", "$REPO_DIR/crypto-mcp/server.py"],
-      "env": $(env_obj "COINGECKO_API_KEY=$COINGECKO_API_KEY" "GLASSNODE_API_KEY=$GLASSNODE_API_KEY")
-    },
-    "macro-data": {
-      "command": "uv",
-      "args": ["run", "$REPO_DIR/macro-mcp/server.py"],
-      "env": $(env_obj "FRED_API_KEY=$FRED_API_KEY")
-    },
-    "sentiment-data": {
-      "command": "uv",
-      "args": ["run", "$REPO_DIR/sentiment-mcp/server.py"],
-      "env": $(env_obj "QUIVER_API_KEY=$QUIVER_API_KEY")
-    },
-    "financial-scraper": {
-      "command": "uv",
-      "args": ["run", "$REPO_DIR/scrape-mcp/server.py"],
-      "env": {}
-    },
-    "social-data": {
-      "command": "uv",
-      "args": ["run", "$REPO_DIR/social-mcp/server.py"],
-      "env": $(env_obj "TWITTER_AUTH_TOKEN=$TWITTER_AUTH_TOKEN" "TWITTER_CT0=$TWITTER_CT0")
-    }
+    "grok-news":         {"command": "uv", "args": ["run", "$REPO_DIR/grok-mcp/server.py"]},
+    "market-data":       {"command": "uv", "args": ["run", "$REPO_DIR/market-data-mcp/server.py"]},
+    "crypto-data":       {"command": "uv", "args": ["run", "$REPO_DIR/crypto-mcp/server.py"]},
+    "macro-data":        {"command": "uv", "args": ["run", "$REPO_DIR/macro-mcp/server.py"]},
+    "sentiment-data":    {"command": "uv", "args": ["run", "$REPO_DIR/sentiment-mcp/server.py"]},
+    "financial-scraper": {"command": "uv", "args": ["run", "$REPO_DIR/scrape-mcp/server.py"]},
+    "social-data":       {"command": "uv", "args": ["run", "$REPO_DIR/social-mcp/server.py"]}
   }
 }
 JSON
