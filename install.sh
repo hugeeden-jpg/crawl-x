@@ -162,18 +162,6 @@ prompt_key GLASSNODE_API_KEY  "GLASSNODE_API_KEY    (crypto, optional)     " "$_
 prompt_key TWITTER_AUTH_TOKEN "TWITTER_AUTH_TOKEN   (social, optional)     " "$_TW_AUTH_EXIST"
 prompt_key TWITTER_CT0        "TWITTER_CT0          (social, optional)     " "$_TW_CT0_EXIST"
 
-# ── helper: build -e KEY=VAL flags (skip empty values) ───────────────────────
-
-env_flags() {
-  local flags=()
-  for pair in "$@"; do
-    local key="${pair%%=*}"
-    local val="${pair#*=}"
-    [[ -n "$val" ]] && flags+=(-e "${key}=${val}")
-  done
-  echo "${flags[@]}"
-}
-
 # ── register MCPs ─────────────────────────────────────────────────────────────
 
 echo ""
@@ -184,18 +172,28 @@ register() {
   local script="$2"
   shift 2
   claude mcp remove "$name" 2>/dev/null || true
-  # shellcheck disable=SC2068
-  claude mcp add "$name" $@ -- uv run "$REPO_DIR/$script"
+  # $@ contains pre-built -e KEY=VAL pairs; name comes first, then flags, then -- cmd
+  claude mcp add "$name" "$@" -- uv run "$REPO_DIR/$script"
   ok "Registered: $name"
 }
 
-register "grok-news"         "grok-mcp/server.py"         $(env_flags "XAI_API_KEY=$XAI_API_KEY")
-register "market-data"       "market-data-mcp/server.py"  $(env_flags "FINNHUB_API_KEY=$FINNHUB_API_KEY")
-register "crypto-data"       "crypto-mcp/server.py"       $(env_flags "COINGECKO_API_KEY=$COINGECKO_API_KEY" "GLASSNODE_API_KEY=$GLASSNODE_API_KEY")
-register "macro-data"        "macro-mcp/server.py"        $(env_flags "FRED_API_KEY=$FRED_API_KEY")
-register "sentiment-data"    "sentiment-mcp/server.py"    $(env_flags "QUIVER_API_KEY=$QUIVER_API_KEY")
+# Build -e KEY=VAL args, skipping empty values
+e() { [[ -n "$2" ]] && printf -- '-e\n%s=%s\n' "$1" "$2"; }
+
+mapfile -t grok_env    < <(e XAI_API_KEY        "$XAI_API_KEY")
+mapfile -t market_env  < <(e FINNHUB_API_KEY    "$FINNHUB_API_KEY")
+mapfile -t crypto_env  < <(e COINGECKO_API_KEY  "$COINGECKO_API_KEY"; e GLASSNODE_API_KEY "$GLASSNODE_API_KEY")
+mapfile -t macro_env   < <(e FRED_API_KEY        "$FRED_API_KEY")
+mapfile -t quiver_env  < <(e QUIVER_API_KEY      "$QUIVER_API_KEY")
+mapfile -t social_env  < <(e TWITTER_AUTH_TOKEN  "$TWITTER_AUTH_TOKEN"; e TWITTER_CT0 "$TWITTER_CT0")
+
+register "grok-news"         "grok-mcp/server.py"         "${grok_env[@]}"
+register "market-data"       "market-data-mcp/server.py"  "${market_env[@]}"
+register "crypto-data"       "crypto-mcp/server.py"       "${crypto_env[@]}"
+register "macro-data"        "macro-mcp/server.py"        "${macro_env[@]}"
+register "sentiment-data"    "sentiment-mcp/server.py"    "${quiver_env[@]}"
 register "financial-scraper" "scrape-mcp/server.py"
-register "social-data"       "social-mcp/server.py"       $(env_flags "TWITTER_AUTH_TOKEN=$TWITTER_AUTH_TOKEN" "TWITTER_CT0=$TWITTER_CT0")
+register "social-data"       "social-mcp/server.py"       "${social_env[@]}"
 
 # ── optionally generate Claude Desktop config ─────────────────────────────────
 
