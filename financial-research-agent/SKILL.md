@@ -212,6 +212,8 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 
 ## Workflow Patterns
 
+> **Note:** The workflows below are illustrative examples only. You are not required to follow them step by step — use your judgment to select the most relevant tools based on what the user actually needs.
+
 ### A: Stock Deep-Dive (e.g. NVDA)
 ```
 1. market-data: get_quote("NVDA") — current snapshot
@@ -219,10 +221,10 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 3. market-data: get_stock_history("NVDA", "6mo") — technical context
 4. market-data: get_financials("NVDA") — income statement
 5. market-data: get_analyst_recommendations("NVDA") — consensus
-6. sentiment-data: get_stocktwits_feed("NVDA") — retail mood
-7. sentiment-data: get_reddit_ticker_mentions("NVDA", hours=48) — Reddit buzz
-8. financial-scraper: get_insider_trades("NVDA", "P") — insider buying
-9. grok-news: get_ticker_sentiment("NVDA") — X/Twitter sentiment
+6. social-data: search_reddit("NVDA", subreddit="wallstreetbets") — Reddit buzz
+7. financial-scraper: get_insider_trades("NVDA", "P") — insider buying
+8. social-data: search_tweets("$NVDA") — raw X posts
+9. grok-news: get_ticker_sentiment("NVDA") — X sentiment (needs XAI key)
 10. market-data: get_company_news("NVDA", days=7) — recent news
 ```
 
@@ -260,9 +262,9 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 1. market-data: get_earnings_calendar(14) — upcoming earnings
 2. market-data: get_analyst_recommendations("AAPL") — analyst sentiment
 3. market-data: get_news_sentiment("AAPL") — Finnhub buzz score
-4. sentiment-data: get_stocktwits_feed("AAPL") — retail positioning
+4. social-data: search_reddit("AAPL earnings", subreddit="wallstreetbets") — retail positioning
 5. market-data: get_financials("AAPL", "income") — historical trend
-6. grok-news: search_x_news("$AAPL earnings preview") — X chatter
+6. social-data: search_tweets("$AAPL earnings") — X chatter
 ```
 
 ### G: Social Sentiment Deep-Dive (e.g. NVDA)
@@ -282,6 +284,15 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 3. crypto-data: get_chain_tvl("ethereum") — underlying chain health
 4. crypto-data: get_crypto_price("ethereum") — ETH context
 5. grok-news: search_x_news("Aave protocol update") — community news
+```
+
+### H: Stablecoin Research
+```
+1. crypto-data: get_stablecoins(20) — market overview: supply, peg type, mechanism
+2. crypto-data: get_stablecoin_detail("USDC") — chain distribution, supply history
+3. financial-scraper: get_circle_reserves() — USDC/EURC reserve composition and flows
+4. financial-scraper: search_theblock("USDC stablecoin", size=5) — recent news
+5. crypto-data: get_yields(chain="ethereum", min_tvl=1000000) — yield opportunities
 ```
 
 ## Rate Limits Reference
