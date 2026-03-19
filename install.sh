@@ -240,6 +240,30 @@ JSON
   warn "  ~/Library/Application Support/Claude/claude_desktop_config.json"
 fi
 
+# ── install skills to ~/.claude/skills/ ──────────────────────────────────────
+
+echo ""
+echo "─── Installing Skills ─────────────────────────────────────────────────────"
+
+SKILLS_DIR="$HOME/.claude/skills"
+
+install_skill() {
+  local name="$1" src="$2"
+  local dest="$SKILLS_DIR/$name"
+  mkdir -p "$dest"
+  cp "$REPO_DIR/$src" "$dest/SKILL.md"
+  ok "Skill installed: $name"
+}
+
+install_skill "financial-research-agent" "financial-research-agent/SKILL.md"
+install_skill "grok-news"                "grok-mcp/SKILL.md"
+install_skill "market-data-mcp"          "market-data-mcp/SKILL.md"
+install_skill "macro-mcp"                "macro-mcp/SKILL.md"
+install_skill "sentiment-mcp"            "sentiment-mcp/SKILL.md"
+install_skill "crypto-mcp"               "crypto-mcp/SKILL.md"
+install_skill "scrape-mcp"               "scrape-mcp/SKILL.md"
+install_skill "social-mcp"               "social-mcp/SKILL.md"
+
 # ── done ──────────────────────────────────────────────────────────────────────
 
 echo ""
