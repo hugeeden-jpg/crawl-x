@@ -12,7 +12,7 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `macro-mcp` | `macro-data` | FRED economic data, SEC EDGAR filings | FRED (required) |
 | `crypto-mcp` | `crypto-data` | CoinGecko prices, DeFi TVL, Glassnode on-chain | optional |
 | `sentiment-mcp` | `sentiment-data` | Fear & Greed Index, congressional/insider sentiment (Quiver) | optional |
-| `scrape-mcp` | `financial-scraper` | OpenInsider trades, Capitol Trades, CME FedWatch | none |
+| `scrape-mcp` | `financial-scraper` | OpenInsider trades, Capitol Trades, CME FedWatch, Circle reserves, The Block news | none |
 | `grok-mcp` | `grok-news` | X/Twitter news and sentiment via Grok API | XAI (optional) |
 | `social-mcp` | `social-data` | Reddit (public), Twitter/X (xreach), YouTube (yt-dlp) | optional |
 
@@ -122,7 +122,11 @@ Restart Claude Desktop to load the MCPs.
 | `get_trending_coins` | Trending coins on CoinGecko |
 | `get_defi_tvl_overview` | Top DeFi protocols by TVL |
 | `get_protocol_tvl` | TVL history and chain breakdown for a protocol |
-| `get_chain_tvl` | TVL trend for a specific blockchain |
+| `get_all_chains` | All blockchains ranked by TVL |
+| `get_chain_tvl` | TVL trend for a specific blockchain (30d) |
+| `get_stablecoins` | Stablecoin market: supply, peg type, mechanism |
+| `get_stablecoin_detail` | Single stablecoin: chain distribution and supply history |
+| `get_yields` | Top yield/lending pools by APY |
 | `get_onchain_metric` | Glassnode on-chain metrics (requires key) |
 | `get_exchange_flows` | Exchange inflow/outflow data (requires key) |
 
@@ -140,6 +144,8 @@ Restart Claude Desktop to load the MCPs.
 | `get_insider_trades` | SEC Form 4 trades from OpenInsider (no key, ~2s) |
 | `get_congressional_trades` | Live congressional trades from Capitol Trades (~15s) |
 | `get_fed_rate_probabilities` | CME FedWatch FOMC rate probabilities (~14s) |
+| `get_circle_reserves` | Circle USDC/EURC circulation, reserves, mint/burn flows (~10s) |
+| `search_theblock(query, size, fetch_body, fetch_index)` | The Block crypto news search + full article body (~1-2s) |
 
 ### grok-news
 | Tool | Description |
