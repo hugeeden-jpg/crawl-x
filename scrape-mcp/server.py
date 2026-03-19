@@ -349,5 +349,93 @@ async def get_fed_rate_probabilities() -> str:
         return f"Error scraping CME FedWatch: {e}"
 
 
+@mcp.tool()
+async def get_circle_reserves() -> str:
+    """
+    Get USDC and EURC reserve data from Circle's transparency page (circle.com/transparency).
+    Shows circulation, total reserves, reserve composition categories,
+    and issuance/redemption flows (7d, 30d, 365d).
+    """
+    if StealthyFetcher is None:
+        return "Error: scrapling not installed. Run: uvx scrapling install"
+    try:
+        page = await StealthyFetcher.async_fetch(
+            "https://www.circle.com/transparency",
+            headless=True,
+            network_idle=True,
+            timeout=30000,
+        )
+
+        main = page.css("main")
+        text = (main[0] if main else page).get_all_text()
+
+        date_m = re.search(r'As of ([A-Z][a-z]+ \d+, \d{4})', text)
+        as_of = date_m.group(1) if date_m else "N/A"
+
+        lines = [f"=== Circle Transparency — Reserves (as of {as_of}) ===\n"]
+
+        # ── USDC ──
+        usdc_m = re.search(
+            r'In circulation\s*\$([\d.]+[BM])\s*Total Reserves\s*\$([\d.]+[BM])', text
+        )
+        if usdc_m:
+            lines.append("--- USDC ---")
+            lines.append(f"In Circulation:  ${usdc_m.group(1)}")
+            lines.append(f"Total Reserves:  ${usdc_m.group(2)}")
+
+        lines.append("\nReserve Composition:")
+        for cat in [
+            "Other Bank Deposits",
+            "Deposits at Systemically Important Institutions",
+            "Overnight Reverse Treasury Repo",
+            "<3-Month Treasuries",
+        ]:
+            if cat in text:
+                lines.append(f"  • {cat}")
+
+        usdc_flow_m = re.search(
+            r'7 Day Change\s*Issued\s*\$([\d.]+[BM])\s*Redeemed\s*\$([\d.]+[BM])\s*([+\-]\$[\d.]+[BM]).*?'
+            r'30 Day Change\s*Issued\s*\$([\d.]+[BM])\s*Redeemed\s*\$([\d.]+[BM])\s*([+\-]\$[\d.]+[BM]).*?'
+            r'365 Day Change\s*Issued\s*\$([\d.]+[BM])\s*Redeemed\s*\$([\d.]+[BM])\s*([+\-]\$[\d.]+[BM])',
+            text, re.DOTALL,
+        )
+        if usdc_flow_m:
+            g = usdc_flow_m.groups()
+            lines.append("\nIssuance & Redemption:")
+            lines.append(f"{'Period':<10} {'Issued':>10} {'Redeemed':>10} {'Net':>10}")
+            lines.append("-" * 44)
+            lines.append(f"{'7 Day':<10} ${g[0]:>8} ${g[1]:>8} {g[2]:>10}")
+            lines.append(f"{'30 Day':<10} ${g[3]:>8} ${g[4]:>8} {g[5]:>10}")
+            lines.append(f"{'365 Day':<10} ${g[6]:>8} ${g[7]:>8} {g[8]:>10}")
+
+        # ── EURC ──
+        eurc_m = re.search(
+            r'In circulation\s*€([\d.]+[BM])\s*Total Reserves\s*\d*\s*€([\d.]+[BM])', text
+        )
+        if eurc_m:
+            lines.append("\n--- EURC ---")
+            lines.append(f"In Circulation:  €{eurc_m.group(1)}")
+            lines.append(f"Total Reserves:  €{eurc_m.group(2)}")
+
+        eurc_flow_m = re.search(
+            r'7 Day Change\s*Issued\s*€([\d.]+[BM])\s*Redeemed\s*€([\d.]+[BM])\s*([+\-]€[\d.]+[BM]).*?'
+            r'30 Day Change\s*Issued\s*€([\d.]+[BM])\s*Redeemed\s*€([\d.]+[BM])\s*([+\-]€[\d.]+[BM]).*?'
+            r'365 Day Change\s*Issued\s*€([\d.]+[BM])\s*Redeemed\s*€([\d.]+[BM])\s*([+\-]€[\d.]+[BM])',
+            text, re.DOTALL,
+        )
+        if eurc_flow_m:
+            g = eurc_flow_m.groups()
+            lines.append("\nIssuance & Redemption:")
+            lines.append(f"{'Period':<10} {'Issued':>12} {'Redeemed':>12} {'Net':>12}")
+            lines.append("-" * 50)
+            lines.append(f"{'7 Day':<10} €{g[0]:>9} €{g[1]:>9} {g[2]:>10}")
+            lines.append(f"{'30 Day':<10} €{g[3]:>9} €{g[4]:>9} {g[5]:>10}")
+            lines.append(f"{'365 Day':<10} €{g[6]:>9} €{g[7]:>9} {g[8]:>10}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error scraping Circle transparency: {e}"
+
+
 if __name__ == "__main__":
     mcp.run()
