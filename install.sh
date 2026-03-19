@@ -137,10 +137,22 @@ fi
 
 # ── API keys (reads existing config, press Enter to keep) ────────────────────
 
+# Prompt for a required key; loops until a non-empty value is provided
+prompt_required_key() {
+  local varname="$1" label="$2" existing="$3"
+  while true; do
+    prompt_key "$varname" "$label" "$existing"
+    local val="${!varname}"
+    [[ -n "$val" ]] && break
+    warn "This key is required — please enter a value (or Ctrl-C to abort)."
+  done
+}
+
 echo ""
-echo "─── API Keys (press Enter to keep existing value, or enter a new one) ────"
-echo "  Required: FRED_API_KEY (macro-mcp)"
-echo "  Optional: all others"
+echo "─── API Keys ──────────────────────────────────────────────────────────────"
+echo "  Press Enter to keep an existing value, or type a new one to replace it."
+echo "  [required] keys must be set for the MCP to function."
+echo "  [optional] keys unlock additional data sources."
 echo ""
 
 # Read existing values from config files
@@ -153,14 +165,72 @@ _GN_EXIST="$(json_get   "$HOME/.config/crypto-mcp/config.json"         "glassnod
 _TW_AUTH_EXIST="$(json_get "$HOME/.config/social-mcp/config.json"      "auth_token")"
 _TW_CT0_EXIST="$(json_get  "$HOME/.config/social-mcp/config.json"      "ct0")"
 
-prompt_key FRED_API_KEY       "FRED_API_KEY         (macro-mcp, required)  " "$_FRED_EXIST"
-prompt_key XAI_API_KEY        "XAI_API_KEY          (grok-mcp, optional)   " "$_XAI_EXIST"
-prompt_key FINNHUB_API_KEY    "FINNHUB_API_KEY      (market-data, optional)" "$_FINN_EXIST"
-prompt_key QUIVER_API_KEY     "QUIVER_API_KEY       (sentiment, optional)  " "$_QUIV_EXIST"
-prompt_key COINGECKO_API_KEY  "COINGECKO_API_KEY    (crypto, optional)     " "$_CGK_EXIST"
-prompt_key GLASSNODE_API_KEY  "GLASSNODE_API_KEY    (crypto, optional)     " "$_GN_EXIST"
-prompt_key TWITTER_AUTH_TOKEN "TWITTER_AUTH_TOKEN   (social, optional)     " "$_TW_AUTH_EXIST"
-prompt_key TWITTER_CT0        "TWITTER_CT0          (social, optional)     " "$_TW_CT0_EXIST"
+# ── FRED (required) ──────────────────────────────────────────────────────────
+echo "┌─ [required] FRED_API_KEY — macro-mcp (Fed rates, CPI, GDP, M2, treasury yields)"
+echo "│  Free key — no credit card needed."
+echo "│  1. Visit: https://fred.stlouisfed.org/docs/api/api_key.html"
+echo "│  2. Sign in (or register for free) → My Account → API Keys → Request API Key"
+echo "└─"
+prompt_required_key FRED_API_KEY "  FRED_API_KEY" "$_FRED_EXIST"
+echo ""
+
+# ── Finnhub (optional but strongly recommended) ──────────────────────────────
+echo "┌─ [optional] FINNHUB_API_KEY — market-data-mcp (real-time quotes, earnings, news)"
+echo "│  Free tier available — strongly recommended for live stock data."
+echo "│  1. Visit: https://finnhub.io"
+echo "│  2. Sign up → Dashboard → copy the API Key shown on the page"
+echo "└─"
+prompt_key FINNHUB_API_KEY    "  FINNHUB_API_KEY    (market-data, optional)" "$_FINN_EXIST"
+echo ""
+
+# ── XAI / Grok (optional) ────────────────────────────────────────────────────
+echo "┌─ [optional] XAI_API_KEY — grok-mcp (AI-synthesised X/Twitter news via Grok)"
+echo "│  Requires an xAI account with active credits."
+echo "│  Note: raw tweet search is already covered by social-data/xreach without a key."
+echo "│  1. Visit: https://console.x.ai"
+echo "│  2. Sign in → API Keys → Create new key"
+echo "└─"
+prompt_key XAI_API_KEY        "  XAI_API_KEY        (grok-mcp, optional)  " "$_XAI_EXIST"
+echo ""
+
+# ── Quiver (optional) ────────────────────────────────────────────────────────
+echo "┌─ [optional] QUIVER_API_KEY — sentiment-mcp (congressional trades, insider sentiment)"
+echo "│  1. Visit: https://www.quiverquant.com"
+echo "│  2. Sign up → Account → API key"
+echo "└─"
+prompt_key QUIVER_API_KEY     "  QUIVER_API_KEY     (sentiment, optional) " "$_QUIV_EXIST"
+echo ""
+
+# ── CoinGecko (optional) ─────────────────────────────────────────────────────
+echo "┌─ [optional] COINGECKO_API_KEY — crypto-mcp (higher rate limits)"
+echo "│  Public endpoints work without a key; a key raises the rate limit."
+echo "│  1. Visit: https://www.coingecko.com/en/api"
+echo "│  2. Sign up → Get Demo API Key (free)"
+echo "└─"
+prompt_key COINGECKO_API_KEY  "  COINGECKO_API_KEY  (crypto, optional)   " "$_CGK_EXIST"
+echo ""
+
+# ── Glassnode (optional) ─────────────────────────────────────────────────────
+echo "┌─ [optional] GLASSNODE_API_KEY — crypto-mcp (on-chain metrics)"
+echo "│  Requires a paid Glassnode account."
+echo "│  1. Visit: https://studio.glassnode.com"
+echo "│  2. Sign in → Account Settings → API → Generate key"
+echo "└─"
+prompt_key GLASSNODE_API_KEY  "  GLASSNODE_API_KEY  (crypto, optional)   " "$_GN_EXIST"
+echo ""
+
+# ── Twitter cookies (optional) ───────────────────────────────────────────────
+echo "┌─ [optional] TWITTER_AUTH_TOKEN + TWITTER_CT0 — social-mcp (Twitter/X search)"
+echo "│  These are session cookies from a logged-in twitter.com tab."
+echo "│  How to get them (Cookie Picker extension — recommended):"
+echo "│    1. Install 'Cookie Picker' from the Chrome Web Store"
+echo "│    2. Log in to twitter.com in Chrome"
+echo "│    3. Click the Cookie Picker icon → find 'auth_token', copy its value"
+echo "│    4. Do the same for 'ct0'"
+echo "│  Alternative: DevTools (F12) → Application → Cookies → https://twitter.com"
+echo "└─"
+prompt_key TWITTER_AUTH_TOKEN "  TWITTER_AUTH_TOKEN (social, optional)   " "$_TW_AUTH_EXIST"
+prompt_key TWITTER_CT0        "  TWITTER_CT0        (social, optional)   " "$_TW_CT0_EXIST"
 
 # ── write API keys to each MCP's config file ─────────────────────────────────
 
