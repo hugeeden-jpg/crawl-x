@@ -723,6 +723,227 @@ def get_options_expiry(ticker: str) -> str:
 
 
 @mcp.tool()
+def get_price_target(ticker: str) -> str:
+    """
+    Get analyst consensus price target for a stock via Finnhub.
+    Shows mean/median target, high/low range, and upside% from current price.
+
+    Args:
+        ticker: Stock ticker symbol (e.g. AAPL, NVDA, TSLA)
+    """
+    try:
+        t = yf.Ticker(ticker.upper())
+        info = t.info
+        price = getattr(t.fast_info, "last_price", None)
+
+        mean = info.get("targetMeanPrice")
+        median = info.get("targetMedianPrice")
+        high = info.get("targetHighPrice")
+        low = info.get("targetLowPrice")
+        num_analysts = info.get("numberOfAnalystOpinions")
+
+        if not any([mean, median, high, low]):
+            return f"No analyst price target data available for {ticker.upper()}"
+
+        lines = [f"=== {ticker.upper()} Analyst Price Target ===\n"]
+        if price:
+            lines.append(f"Current Price:   ${price:.2f}")
+        if num_analysts:
+            lines.append(f"# Analysts:      {num_analysts}")
+        if mean:
+            upside = (mean - price) / price * 100 if price else None
+            upside_str = f"  ({upside:+.1f}% upside)" if upside is not None else ""
+            lines.append(f"Consensus Mean:  ${mean:.2f}{upside_str}")
+        if median:
+            med_upside = (median - price) / price * 100 if price else None
+            med_str = f"  ({med_upside:+.1f}% upside)" if med_upside is not None else ""
+            lines.append(f"Median Target:   ${median:.2f}{med_str}")
+        if high:
+            lines.append(f"High Target:     ${high:.2f}")
+        if low:
+            lines.append(f"Low Target:      ${low:.2f}")
+        if high and low and price:
+            lines.append(f"Target Range:    ${low:.2f} — ${high:.2f}  (±{(high-low)/2/price*100:.1f}% spread)")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_short_interest(ticker: str) -> str:
+    """
+    Get short interest data for a stock via yfinance:
+    short float%, short ratio (days to cover), shares short, month-over-month change.
+
+    Args:
+        ticker: Stock ticker symbol (e.g. AAPL, GME, NVDA)
+    """
+    try:
+        info = yf.Ticker(ticker.upper()).info
+
+        shares_short = info.get("sharesShort")
+        shares_short_prior = info.get("sharesShortPriorMonth")
+        short_ratio = info.get("shortRatio")
+        short_pct_float = info.get("shortPercentOfFloat")
+        float_shares = info.get("floatShares")
+        shares_out = info.get("sharesOutstanding")
+        date_short = info.get("dateShortInterest")
+
+        if not any(v is not None for v in [short_pct_float, short_ratio, shares_short]):
+            return f"No short interest data available for {ticker.upper()}"
+
+        lines = [f"=== {ticker.upper()} Short Interest ===\n"]
+
+        if date_short:
+            try:
+                date_str = datetime.fromtimestamp(date_short).strftime("%Y-%m-%d")
+            except Exception:
+                date_str = str(date_short)[:10]
+            lines.append(f"Report Date:          {date_str}")
+
+        if short_pct_float is not None:
+            risk = " ⚠ HIGH" if short_pct_float > 0.20 else (" ELEVATED" if short_pct_float > 0.10 else "")
+            lines.append(f"Short Float %:        {short_pct_float*100:.2f}%{risk}")
+        if short_ratio is not None:
+            lines.append(f"Days to Cover:        {short_ratio:.1f} days")
+        if shares_short is not None:
+            lines.append(f"Shares Short:         {shares_short:,.0f}")
+        if shares_short_prior is not None:
+            lines.append(f"Shares Short (prev):  {shares_short_prior:,.0f}")
+            if shares_short:
+                chg = (shares_short - shares_short_prior) / shares_short_prior * 100
+                direction = "▲" if chg > 0 else "▼"
+                lines.append(f"Month-over-Month:     {direction} {abs(chg):.1f}%")
+        if float_shares is not None:
+            lines.append(f"Float Shares:         {float_shares:,.0f}")
+        if shares_out is not None:
+            lines.append(f"Shares Outstanding:   {shares_out:,.0f}")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_options_chain(
+    ticker: str,
+    expiry: str = "",
+    option_type: str = "both",
+) -> str:
+    """
+    Get full options chain with IV and Max Pain for a stock via yfinance.
+    Shows top strikes by open interest for the given expiry date.
+
+    Args:
+        ticker:      Stock ticker symbol (e.g. AAPL, SPY, TSLA)
+        expiry:      Expiry date YYYY-MM-DD (default: nearest expiry).
+                     Use get_options_expiry() to see all available dates.
+        option_type: "calls", "puts", or "both" (default: "both")
+    """
+    try:
+        t = yf.Ticker(ticker.upper())
+        expirations = t.options
+        if not expirations:
+            return f"No options data for {ticker.upper()}"
+
+        chain = None
+        if expiry and expiry in expirations:
+            exp = expiry
+        elif expiry:
+            return f"Expiry {expiry} not available. Nearest dates: {', '.join(expirations[:5])}"
+        else:
+            # Skip today; scan up to 12 future expiries, pick the one with the most OI
+            today_str = datetime.today().strftime("%Y-%m-%d")
+            future = [e for e in expirations if e > today_str]
+            best_exp = future[0] if future else expirations[0]
+            best_oi = -1
+            for candidate in future[:12]:
+                try:
+                    c = t.option_chain(candidate)
+                    total_oi = int(c.calls["openInterest"].sum()) + int(c.puts["openInterest"].sum())
+                    if total_oi > best_oi:
+                        best_oi = total_oi
+                        best_exp = candidate
+                        chain = c
+                    if total_oi >= 5000:  # good enough, stop early
+                        break
+                except Exception:
+                    continue
+            exp = best_exp
+
+        if chain is None:
+            chain = t.option_chain(exp)
+        price = getattr(t.fast_info, "last_price", None)
+
+        def calc_max_pain(calls_df, puts_df) -> float | None:
+            # Filter out strikes more than 50% away from current price (noise removal)
+            if price:
+                lo, hi = price * 0.5, price * 1.5
+                calls_df = calls_df[(calls_df["strike"] >= lo) & (calls_df["strike"] <= hi)]
+                puts_df = puts_df[(puts_df["strike"] >= lo) & (puts_df["strike"] <= hi)]
+            # Require at least 500 total OI in range — otherwise result is meaningless
+            total_filtered_oi = int(calls_df["openInterest"].sum()) + int(puts_df["openInterest"].sum())
+            if total_filtered_oi < 500:
+                return None
+            all_strikes = sorted(set(calls_df["strike"].tolist() + puts_df["strike"].tolist()))
+            if not all_strikes:
+                return None
+            best_strike, best_pain = all_strikes[0], float("inf")
+            for s in all_strikes:
+                c_loss = float(((s - calls_df["strike"]).clip(lower=0) * calls_df["openInterest"]).sum())
+                p_loss = float(((puts_df["strike"] - s).clip(lower=0) * puts_df["openInterest"]).sum())
+                total = c_loss + p_loss
+                if total < best_pain:
+                    best_pain, best_strike = total, s
+            return best_strike
+
+        def fmt_chain(df, label):
+            rows = [f"\n{label}:"]
+            rows.append(f"{'Strike':>8} {'Last':>8} {'Bid':>7} {'Ask':>7} {'IV':>7} {'OI':>9} {'Volume':>8}  ITM")
+            rows.append("-" * 68)
+            top = df.sort_values("openInterest", ascending=False).head(25).sort_values("strike")
+            for _, row in top.iterrows():
+                strike = row.get("strike", 0)
+                last = row.get("lastPrice", 0) or 0
+                bid = row.get("bid", 0) or 0
+                ask = row.get("ask", 0) or 0
+                iv = row.get("impliedVolatility")
+                oi = int(row.get("openInterest", 0) or 0)
+                vol_raw = row.get("volume")
+                vol = int(vol_raw) if pd.notna(vol_raw) else 0
+                itm = "✓" if row.get("inTheMoney", False) else ""
+                iv_str = f"{iv*100:.1f}%" if iv is not None and pd.notna(iv) else "N/A"
+                rows.append(
+                    f"{strike:>8.2f} {last:>8.2f} {bid:>7.2f} {ask:>7.2f} {iv_str:>7} {oi:>9,} {vol:>8,}  {itm}"
+                )
+            return rows
+
+        lines = [f"=== {ticker.upper()} Options Chain — Expiry: {exp} ==="]
+        if price:
+            lines.append(f"Current Price: ${price:.2f}")
+
+        max_pain = calc_max_pain(chain.calls, chain.puts)
+        if max_pain is not None:
+            distance = (max_pain - price) / price * 100 if price else 0
+            lines.append(f"Max Pain:      ${max_pain:.2f}  ({distance:+.1f}% from current)")
+
+        total_call_oi = int(chain.calls["openInterest"].sum()) if not chain.calls.empty else 0
+        total_put_oi = int(chain.puts["openInterest"].sum()) if not chain.puts.empty else 0
+        pc = total_put_oi / total_call_oi if total_call_oi > 0 else 0
+        lines.append(f"Total OI:      Calls {total_call_oi:,}  |  Puts {total_put_oi:,}  |  P/C {pc:.2f}")
+
+        if option_type in ("calls", "both"):
+            lines.extend(fmt_chain(chain.calls, "Calls (top 25 by OI)"))
+        if option_type in ("puts", "both"):
+            lines.extend(fmt_chain(chain.puts, "Puts (top 25 by OI)"))
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
 def get_news_sentiment(ticker: str) -> str:
     """
     Get Finnhub news sentiment and buzz score for a stock

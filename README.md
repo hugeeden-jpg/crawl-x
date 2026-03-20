@@ -105,6 +105,9 @@ Restart Claude Desktop to load the MCPs.
 | `get_ipo_calendar` | Upcoming IPO listings with price range and exchange (Finnhub) |
 | `get_dividend_calendar` | Per-stock: ex-div date, pay date, yield (yfinance). Market-wide (no ticker): all stocks going ex-div by timeframe/country (Investing.com, no key) |
 | `get_options_expiry` | Options expiry dates + call/put OI + P/C ratio (yfinance) |
+| `get_price_target` | Analyst consensus price target: mean/median/high/low + upside% (yfinance) |
+| `get_short_interest` | Short float%, days to cover, shares short, MoM change (yfinance) |
+| `get_options_chain` | Full options chain: strike/IV/bid/ask/OI + Max Pain for a given expiry (yfinance) |
 | `get_news_sentiment` | News sentiment and buzz score (Finnhub) |
 | `get_simfin_financials` | Standardized income / balance / cashflow / derived ratios (SimFin) |
 

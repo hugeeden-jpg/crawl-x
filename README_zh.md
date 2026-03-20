@@ -106,6 +106,9 @@ Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 
 | `get_ipo_calendar` | 即将上市的 IPO 日历：价格区间、交易所（Finnhub） |
 | `get_dividend_calendar` | 双模式：指定 ticker → 该股除息日/付息日/历史股息（yfinance）；不传 ticker → 全市场除息日历，按时间段/国家筛选（Investing.com，无需 Key） |
 | `get_options_expiry` | 期权到期日历：Call/Put 未平仓量、P/C 比率（yfinance） |
+| `get_price_target` | 分析师共识目标价：均值/中位数/高低区间 + 上涨空间%（yfinance） |
+| `get_short_interest` | 做空数据：空头浮动%、Days to Cover、空仓量、环比变化（yfinance） |
+| `get_options_chain` | 完整期权链：行权价/IV/买卖价/未平仓量 + Max Pain（yfinance，OI 尽力提供） |
 | `get_news_sentiment` | 新闻情绪与热度评分（Finnhub） |
 | `get_simfin_financials` | 标准化财务报表：利润表 / 资产负债表 / 现金流 / 衍生指标（SimFin） |
 

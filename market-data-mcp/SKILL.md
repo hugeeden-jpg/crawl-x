@@ -42,6 +42,9 @@ Claude Desktop config:
 | `get_ipo_calendar(days_ahead)` | Yes | Upcoming IPO listings with price range and exchange |
 | `get_dividend_calendar(ticker, timeframe, country)` | No | Per-stock: ex-div date, payment date, yield (yfinance). Market-wide (no ticker): all stocks going ex-div in timeframe via Investing.com |
 | `get_options_expiry(ticker)` | No | Options expiration dates with call/put OI and P/C ratio |
+| `get_price_target(ticker)` | No | Analyst consensus price target: mean/median/high/low + upside% (yfinance) |
+| `get_short_interest(ticker)` | No | Short float%, days to cover, shares short, month-over-month change (yfinance) |
+| `get_options_chain(ticker, expiry, option_type)` | No | Full options chain: strike/IV/bid/ask/OI + Max Pain for a given expiry (yfinance) |
 | `get_news_sentiment(ticker)` | Yes | Buzz score + bullish/bearish % |
 | `get_simfin_financials(ticker, statement, period)` | SimFin | Standardized cross-company financials |
 
@@ -60,6 +63,16 @@ get_earnings_calendar(14) → get_analyst_recommendations("AAPL") → get_news_s
 **Calendar suite:**
 ```
 get_economic_calendar(7, "US") → get_ipo_calendar(30) → get_dividend_calendar(timeframe="thisWeek", country="US") → get_options_expiry("SPY")
+```
+
+**Short squeeze screening:**
+```
+get_short_interest("GME") → get_options_chain("GME", option_type="calls")
+```
+
+**Analyst consensus check:**
+```
+get_price_target("NVDA") → get_analyst_recommendations("NVDA")
 ```
 
 **Per-stock dividend check:**

@@ -85,6 +85,9 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "When does AAPL go ex-dividend? What is the yield?" → `market-data` → `get_dividend_calendar("AAPL")`
 - "What stocks go ex-dividend this week? Show me dividend calendar." → `market-data` → `get_dividend_calendar(timeframe="thisWeek", country="US")`
 - "What are the options expiry dates for SPY? What is the put/call ratio?" → `market-data` → `get_options_expiry`
+- "What is the analyst price target for X? What is the upside?" → `market-data` → `get_price_target`
+- "How much short interest does X have? Is it a short squeeze candidate?" → `market-data` → `get_short_interest`
+- "Show me the options chain for X / what strikes have the most OI / where is Max Pain?" → `market-data` → `get_options_chain(ticker, expiry)`
 - "What is the Fed doing / interest rates / inflation?" → `macro-data` → `get_key_indicators`, `get_fred_data`
 - "What is X's 10-K / 10-Q / SEC filing?" → `macro-data` → `search_edgar_company`, `get_recent_filings`
 - "Who owns what? What did fund X buy?" → `macro-data` → `get_13f_holdings`
@@ -137,6 +140,9 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `get_ipo_calendar(days_ahead)` | Upcoming IPO listings with price and exchange |
 | `get_dividend_calendar(ticker, timeframe, country)` | Per-stock: ex-div date, pay date, yield (yfinance). Market-wide (no ticker): all stocks going ex-div scraped from Investing.com |
 | `get_options_expiry(ticker)` | Options expiry dates + OI + P/C ratio (yfinance) |
+| `get_price_target(ticker)` | Analyst consensus target: mean/median/high/low + upside% |
+| `get_short_interest(ticker)` | Short float%, days to cover, shares short, MoM change |
+| `get_options_chain(ticker, expiry, option_type)` | Full chain: IV/bid/ask/OI + Max Pain (yfinance; OI best-effort) |
 | `get_news_sentiment(ticker)` | Finnhub buzz + sentiment |
 | `get_simfin_financials(ticker, statement, period)` | Standardized statements: income/balance/cashflow/derived (SimFin key) |
 
