@@ -38,6 +38,10 @@ Claude Desktop config:
 | `get_market_news(category)` | Yes | Latest market news (general/forex/crypto/merger) |
 | `get_company_news(ticker, days)` | Yes | Company-specific news |
 | `get_earnings_calendar(days_ahead)` | Yes | Upcoming earnings with estimates |
+| `get_economic_calendar(days_ahead, country)` | Yes (premium) | Upcoming macro events: CPI, NFP, GDP, FOMC, PMI |
+| `get_ipo_calendar(days_ahead)` | Yes | Upcoming IPO listings with price range and exchange |
+| `get_dividend_calendar(ticker)` | No | Ex-dividend date, payment date, yield estimate |
+| `get_options_expiry(ticker)` | No | Options expiration dates with call/put OI and P/C ratio |
 | `get_news_sentiment(ticker)` | Yes | Buzz score + bullish/bearish % |
 | `get_simfin_financials(ticker, statement, period)` | SimFin | Standardized cross-company financials |
 
@@ -51,6 +55,11 @@ get_quote("NVDA") → get_stock_info("NVDA")
 **Earnings research:**
 ```
 get_earnings_calendar(14) → get_analyst_recommendations("AAPL") → get_news_sentiment("AAPL")
+```
+
+**Calendar suite:**
+```
+get_economic_calendar(7, "US") → get_ipo_calendar(30) → get_dividend_calendar("AAPL") → get_options_expiry("SPY")
 ```
 
 **Historical analysis:**

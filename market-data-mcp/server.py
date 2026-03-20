@@ -366,6 +366,186 @@ def get_earnings_calendar(days_ahead: int = 7) -> str:
 
 
 @mcp.tool()
+def get_economic_calendar(days_ahead: int = 7, country: str = "") -> str:
+    """
+    Get upcoming economic events (CPI, NFP, GDP, FOMC, PMI, etc.) via Finnhub
+
+    Args:
+        days_ahead: Days ahead to look for events (default: 7)
+        country: Filter by country code, e.g. "US", "EU", "CN" (default: all countries)
+    """
+    try:
+        start = datetime.today().strftime("%Y-%m-%d")
+        end = (datetime.today() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+        try:
+            data = finnhub_get("/calendar/economic", {"from": start, "to": end})
+        except Exception as ex:
+            if "403" in str(ex) or "Forbidden" in str(ex):
+                return "Economic calendar requires Finnhub premium plan. Upgrade at https://finnhub.io/pricing"
+            raise
+        events = data.get("economicCalendar", [])
+        if country:
+            events = [e for e in events if e.get("country", "").upper() == country.upper()]
+        events.sort(key=lambda e: e.get("time", ""))
+
+        impact_label = {"high": "🔴 High", "medium": "🟡 Med", "low": "⚪ Low"}
+        lines = [f"=== Economic Calendar (next {days_ahead} days{f', {country.upper()}' if country else ''}) ===\n"]
+        lines.append(f"{'Date/Time':<20} {'Ctry':<5} {'Impact':<10} {'Event':<40} {'Prev':>10} {'Est':>10} {'Actual':>10}")
+        lines.append("-" * 110)
+
+        for e in events[:50]:
+            raw_time = e.get("time", "")
+            try:
+                dt = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
+                time_str = dt.strftime("%Y-%m-%d %H:%M")
+            except Exception:
+                time_str = raw_time[:19]
+            ctry = e.get("country", "")[:4]
+            impact = impact_label.get(e.get("impact", "").lower(), e.get("impact", ""))
+            event_name = e.get("event", "")[:39]
+            unit = e.get("unit", "")
+
+            def fmt_val(v):
+                if v is None or v == "":
+                    return "N/A"
+                try:
+                    return f"{float(v):.2f}{unit}"
+                except Exception:
+                    return str(v)
+
+            prev = fmt_val(e.get("prev"))
+            est = fmt_val(e.get("estimate"))
+            actual = fmt_val(e.get("actual"))
+            lines.append(f"{time_str:<20} {ctry:<5} {impact:<10} {event_name:<40} {prev:>10} {est:>10} {actual:>10}")
+
+        if not events:
+            lines.append("No events found for the specified period.")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_ipo_calendar(days_ahead: int = 30) -> str:
+    """
+    Get upcoming IPO listings with price range, shares offered, and exchange via Finnhub
+
+    Args:
+        days_ahead: Days ahead to look for IPOs (default: 30)
+    """
+    try:
+        start = datetime.today().strftime("%Y-%m-%d")
+        end = (datetime.today() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+        data = finnhub_get("/calendar/ipo", {"from": start, "to": end})
+        ipos = data.get("ipoCalendar", [])
+        lines = [f"=== IPO Calendar (next {days_ahead} days) ===\n"]
+        lines.append(f"{'Date':<12} {'Ticker':<8} {'Exchange':<10} {'Shares':>12} {'Price Range':<18} {'Status':<12} Name")
+        lines.append("-" * 100)
+        for item in sorted(ipos, key=lambda x: x.get("date", "")):
+            date = item.get("date", "")
+            symbol = item.get("symbol", "N/A")[:7]
+            exchange = item.get("exchange", "")[:9]
+            shares = item.get("numberOfShares")
+            shares_str = f"{shares/1e6:.1f}M" if shares else "N/A"
+            price = item.get("price")
+            price_str = f"${price}" if price else "N/A"
+            status = item.get("status", "")[:11]
+            name = item.get("name", "")[:30]
+            lines.append(f"{date:<12} {symbol:<8} {exchange:<10} {shares_str:>12} {price_str:<18} {status:<12} {name}")
+        if not ipos:
+            lines.append("No IPOs found for the specified period.")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_dividend_calendar(ticker: str) -> str:
+    """
+    Get upcoming ex-dividend date and recent dividend history for a stock via yfinance
+
+    Args:
+        ticker: Stock ticker symbol (e.g. AAPL, MSFT, JNJ)
+    """
+    try:
+        t = yf.Ticker(ticker.upper())
+        lines = [f"=== Dividend Calendar: {ticker.upper()} ===\n"]
+
+        # Upcoming dividend from calendar
+        try:
+            cal = t.calendar
+            ex_div = cal.get("Ex-Dividend Date", "N/A")
+            pay_date = cal.get("Dividend Date", "N/A")
+            lines.append("Upcoming:")
+            lines.append(f"  Ex-Dividend Date : {ex_div}")
+            lines.append(f"  Payment Date     : {pay_date}")
+        except Exception:
+            lines.append("Upcoming: N/A")
+
+        # Recent dividend history
+        divs = t.dividends
+        if divs is not None and not divs.empty:
+            lines.append(f"\nRecent Dividend History (last 8 payments):")
+            lines.append(f"{'Date':<14} {'Amount':>10}")
+            lines.append("-" * 26)
+            for dt, amount in divs.tail(8).items():
+                date_str = str(dt.date()) if hasattr(dt, "date") else str(dt)[:10]
+                lines.append(f"{date_str:<14} ${amount:.4f}")
+
+            # Annualized yield estimate
+            info = t.fast_info
+            price = getattr(info, "last_price", None)
+            if price and len(divs) >= 4:
+                annual = float(divs.tail(4).sum())
+                yield_pct = annual / price * 100
+                lines.append(f"\nTrailing 4-payment annualized: ${annual:.4f} ({yield_pct:.2f}% yield at ${price:.2f})")
+        else:
+            lines.append("\nNo dividend history found.")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_options_expiry(ticker: str) -> str:
+    """
+    Get available options expiration dates and open interest summary for a stock via yfinance
+
+    Args:
+        ticker: Stock ticker symbol (e.g. AAPL, SPY, TSLA)
+    """
+    try:
+        t = yf.Ticker(ticker.upper())
+        expirations = t.options
+        if not expirations:
+            return f"No options data found for {ticker.upper()}"
+
+        lines = [f"=== Options Expiry Calendar: {ticker.upper()} ===\n"]
+        lines.append(f"{'Expiry':<14} {'Days Out':>9} {'Calls OI':>10} {'Puts OI':>10} {'Total OI':>10} {'P/C Ratio':>10}")
+        lines.append("-" * 65)
+
+        today = datetime.today().date()
+        for exp in expirations[:20]:
+            try:
+                exp_date = datetime.strptime(exp, "%Y-%m-%d").date()
+                days_out = (exp_date - today).days
+                chain = t.option_chain(exp)
+                calls_oi = int(chain.calls["openInterest"].sum()) if not chain.calls.empty else 0
+                puts_oi = int(chain.puts["openInterest"].sum()) if not chain.puts.empty else 0
+                total_oi = calls_oi + puts_oi
+                pc_ratio = f"{puts_oi / calls_oi:.2f}" if calls_oi > 0 else "N/A"
+                lines.append(f"{exp:<14} {days_out:>9} {calls_oi:>10,} {puts_oi:>10,} {total_oi:>10,} {pc_ratio:>10}")
+            except Exception:
+                lines.append(f"{exp:<14} {'N/A':>9}")
+
+        lines.append(f"\nTotal expiration dates available: {len(expirations)}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
 def get_news_sentiment(ticker: str) -> str:
     """
     Get Finnhub news sentiment and buzz score for a stock

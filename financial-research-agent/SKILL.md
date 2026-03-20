@@ -80,6 +80,10 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "Show me the price history / chart of X" → `market-data` → `get_stock_history`
 - "What do analysts say about X?" → `market-data` → `get_analyst_recommendations`, `get_news_sentiment`
 - "What are the latest earnings for X?" → `market-data` → `get_earnings_calendar`, `get_financials`
+- "What economic events are coming up? CPI / NFP / FOMC this week?" → `market-data` → `get_economic_calendar` (requires Finnhub premium)
+- "What IPOs are coming up?" → `market-data` → `get_ipo_calendar`
+- "When does AAPL go ex-dividend? What is the yield?" → `market-data` → `get_dividend_calendar`
+- "What are the options expiry dates for SPY? What is the put/call ratio?" → `market-data` → `get_options_expiry`
 - "What is the Fed doing / interest rates / inflation?" → `macro-data` → `get_key_indicators`, `get_fred_data`
 - "What is X's 10-K / 10-Q / SEC filing?" → `macro-data` → `search_edgar_company`, `get_recent_filings`
 - "Who owns what? What did fund X buy?" → `macro-data` → `get_13f_holdings`
@@ -128,6 +132,10 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `get_market_news(category)` | Market news |
 | `get_company_news(ticker, days)` | Company news |
 | `get_earnings_calendar(days_ahead)` | Upcoming earnings |
+| `get_economic_calendar(days_ahead, country)` | Macro events: CPI, NFP, GDP, FOMC, PMI (Finnhub premium) |
+| `get_ipo_calendar(days_ahead)` | Upcoming IPO listings with price and exchange |
+| `get_dividend_calendar(ticker)` | Ex-div date, pay date, yield estimate (yfinance) |
+| `get_options_expiry(ticker)` | Options expiry dates + OI + P/C ratio (yfinance) |
 | `get_news_sentiment(ticker)` | Finnhub buzz + sentiment |
 | `get_simfin_financials(ticker, statement, period)` | Standardized statements: income/balance/cashflow/derived (SimFin key) |
 
