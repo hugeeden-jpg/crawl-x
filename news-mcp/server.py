@@ -18,6 +18,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from ssl_utils import apply_ssl_fix  # noqa: E402
 apply_ssl_fix()
 
+import json
+import time
 import requests
 from mcp.server.fastmcp import FastMCP
 
@@ -149,6 +151,56 @@ def get_news_sentiment(query: str, timespan: str = "7d") -> str:
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"
+
+
+@mcp.tool()
+def batch_news(requests_json: str) -> str:
+    """
+    Batch fetch news for multiple queries, with automatic 5-second rate limiting between requests.
+
+    Args:
+        requests_json: JSON array of request objects. Each object must have an "api" field
+            ("search_news" or "get_news_sentiment") plus the corresponding parameters:
+            - search_news: query (required), timespan (optional, default "7d"), max_records (optional, default 20)
+            - get_news_sentiment: query (required), timespan (optional, default "7d")
+
+            Example:
+            [
+              {"api": "search_news", "query": "Apple Inc", "timespan": "3d", "max_records": 10},
+              {"api": "get_news_sentiment", "query": "Federal Reserve", "timespan": "7d"}
+            ]
+    """
+    try:
+        items = json.loads(requests_json)
+    except json.JSONDecodeError as e:
+        return f"Error: invalid JSON — {e}"
+
+    if not isinstance(items, list) or not items:
+        return "Error: requests_json must be a non-empty JSON array."
+
+    results = []
+    for i, item in enumerate(items):
+        if i > 0:
+            time.sleep(5)
+
+        api = item.get("api")
+        if api == "search_news":
+            result = search_news(
+                query=item.get("query", ""),
+                timespan=item.get("timespan", "7d"),
+                max_records=int(item.get("max_records", 20)),
+            )
+        elif api == "get_news_sentiment":
+            result = get_news_sentiment(
+                query=item.get("query", ""),
+                timespan=item.get("timespan", "7d"),
+            )
+        else:
+            result = f"Error: unknown api '{api}'. Use 'search_news' or 'get_news_sentiment'."
+
+        results.append(f"--- [{i+1}/{len(items)}] {api}: {item.get('query', '')} ---\n{result}")
+
+    return "\n\n".join(results)
 
 
 if __name__ == "__main__":

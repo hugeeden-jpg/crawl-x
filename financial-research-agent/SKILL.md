@@ -112,6 +112,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "Get the earnings call transcript for X" → `social-data` → `search_youtube(query)` → `get_video_transcript(url)`
 - "Search global news about X / what is the world saying about Y?" → `news-data` → `search_news(query)`
 - "What is the news sentiment trend for X over the past week?" → `news-data` → `get_news_sentiment(query)`
+- "Fetch news/sentiment for multiple topics at once" → `news-data` → `batch_news(requests_json)` (handles 5s rate limit automatically)
 - "Get standardized financials / compare income statements across companies?" → `market-data` → `get_simfin_financials(ticker, statement, period)`
 - "What are the derived ratios (P/E, ROIC, FCF, margins) for X?" → `market-data` → `get_simfin_financials(ticker, statement="derived")`
 
@@ -198,6 +199,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 |------|-------------|
 | `search_news(query, timespan, max_records)` | Global news search via GDELT (100+ languages, 65+ countries). No key required |
 | `get_news_sentiment(query, timespan)` | Hourly tone timeline aggregated to daily averages. Positive = bullish, negative = bearish |
+| `batch_news(requests_json)` | Batch multiple search_news/get_news_sentiment calls; auto rate-limits 5s between each (IP-based: 1 req/5s) |
 
 ### social-data
 | Tool | Description |
