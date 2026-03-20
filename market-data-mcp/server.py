@@ -375,15 +375,18 @@ _INVESTING_CURRENCY_MAP = {
     "HK": "HKD", "SG": "SGD", "IN": "INR", "BR": "BRL", "MX": "MXN",
 }
 
-# Dividend calendar country IDs (Investing.com POST body format)
-# Maps short code → Investing.com numeric country ID
+# Dividend calendar country IDs (Investing.com dividend calendar POST body).
+# Source: <ul class="countryOption"> in https://cn.investing.com/dividends-calendar/
 _DIV_COUNTRY_MAP = {
-    "US": "37", "UK": "36", "DE": "5",  "FR": "4",  "CA": "39",
-    "JP": "35", "CN": "14", "AU": "25", "HK": "39", "KR": "22",
-    "CH": "6",  "NZ": "32", "SG": "48", "IN": "41", "BR": "32",
+    "US": "5",   "UK": "4",   "DE": "17",  "FR": "22",  "CA": "6",
+    "JP": "35",  "CN": "37",  "AU": "25",  "HK": "39",  "KR": "11",
+    "CH": "12",  "NZ": "43",  "SG": "36",  "IN": "14",  "BR": "32",
+    "TW": "46",  "SE": "9",   "ES": "26",  "NL": "21",  "IT": "10",
+    "NO": "60",  "MY": "42",  "TH": "41",  "ZA": "110", "MX": "7",
+    "BE": "34",  "FI": "71",
 }
-# Default: same major economies as economic calendar
-_DIV_DEFAULT_COUNTRY_IDS = ["37", "36", "5", "4", "39", "35", "14", "25", "22", "6", "48", "41"]
+# Default: major markets (US, UK, CN, JP, HK, SG, AU, FR, CA, DE, KR, IN, BR)
+_DIV_DEFAULT_COUNTRY_IDS = ["5", "4", "37", "35", "39", "36", "25", "22", "6", "17", "11", "14", "32"]
 
 
 @mcp.tool()
@@ -539,8 +542,9 @@ def get_dividend_calendar(
         ticker:    Stock ticker for per-stock mode (e.g. AAPL). Leave empty for market scan.
         timeframe: Market-wide mode only — one of "today", "tomorrow", "thisWeek", "nextWeek".
                    Default "thisWeek".
-        country:   Market-wide mode only — filter by country code: US, UK, DE, FR, CA, JP,
-                   CN, AU, HK, KR, CH, SG, IN. Leave empty for all major markets.
+        country:   Market-wide mode only — filter by country code, e.g. US, UK, DE, FR,
+                   CA, JP, CN, AU, HK, KR, CH, NZ, SG, IN, BR, TW, SE, ES, NL, IT, NO,
+                   MY, TH, ZA, MX, BE, FI. Leave empty for all major markets.
     """
     # ── Per-stock mode ────────────────────────────────────────────────────────
     if ticker:
