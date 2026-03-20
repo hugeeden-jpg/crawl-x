@@ -365,61 +365,108 @@ def get_earnings_calendar(days_ahead: int = 7) -> str:
         return f"Error: {e}"
 
 
+_INVESTING_COUNTRY_IDS = "25,32,6,37,72,22,17,39,14,48,10,35,42,43,36,110,11,26,12,46,41,4,5,178"
+_INVESTING_CURRENCY_MAP = {
+    "US": "USD", "EU": "EUR", "CN": "CNY", "JP": "JPY", "GB": "GBP",
+    "AU": "AUD", "CA": "CAD", "NZ": "NZD", "CH": "CHF", "KR": "KRW",
+    "HK": "HKD", "SG": "SGD", "IN": "INR", "BR": "BRL", "MX": "MXN",
+}
+
+
 @mcp.tool()
-def get_economic_calendar(days_ahead: int = 7, country: str = "") -> str:
+def get_economic_calendar(days_ahead: int = 7, currency: str = "") -> str:
     """
-    Get upcoming economic events (CPI, NFP, GDP, FOMC, PMI, etc.) via Finnhub
+    Get upcoming economic events (CPI, NFP, GDP, FOMC, PMI, etc.) via Investing.com.
+    No API key required. Covers 24 major economies.
 
     Args:
         days_ahead: Days ahead to look for events (default: 7)
-        country: Filter by country code, e.g. "US", "EU", "CN" (default: all countries)
+        currency: Filter by currency code, e.g. "USD", "EUR", "CNY" (default: all).
+                  Also accepts country codes: "US", "EU", "CN", "JP", "GB".
     """
     try:
-        start = datetime.today().strftime("%Y-%m-%d")
-        end = (datetime.today() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-        try:
-            data = finnhub_get("/calendar/economic", {"from": start, "to": end})
-        except Exception as ex:
-            if "403" in str(ex) or "Forbidden" in str(ex):
-                return "Economic calendar requires Finnhub premium plan. Upgrade at https://finnhub.io/pricing"
-            raise
-        events = data.get("economicCalendar", [])
-        if country:
-            events = [e for e in events if e.get("country", "").upper() == country.upper()]
-        events.sort(key=lambda e: e.get("time", ""))
+        now = datetime.utcnow()
+        start = now.strftime("%Y-%m-%dT00:00:00.000+00:00")
+        end = (now + timedelta(days=days_ahead)).strftime("%Y-%m-%dT23:59:59.999+00:00")
 
-        impact_label = {"high": "🔴 High", "medium": "🟡 Med", "low": "⚪ Low"}
-        lines = [f"=== Economic Calendar (next {days_ahead} days{f', {country.upper()}' if country else ''}) ===\n"]
-        lines.append(f"{'Date/Time':<20} {'Ctry':<5} {'Impact':<10} {'Event':<40} {'Prev':>10} {'Est':>10} {'Actual':>10}")
-        lines.append("-" * 110)
+        r = requests.get(
+            "https://endpoints.investing.com/pd-instruments/v1/calendars/economic/events/occurrences",
+            params={
+                "domain_id": "6",
+                "limit": "500",
+                "start_date": start,
+                "end_date": end,
+                "country_ids": _INVESTING_COUNTRY_IDS,
+            },
+            headers={
+                "accept": "*/*",
+                "referer": "https://cn.investing.com/",
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            },
+            timeout=15,
+        )
+        r.raise_for_status()
+        data = r.json()
 
-        for e in events[:50]:
-            raw_time = e.get("time", "")
+        events_df = pd.DataFrame(data.get("events", []))
+        occ_df = pd.DataFrame(data.get("occurrences", []))
+
+        if events_df.empty or occ_df.empty:
+            return "No economic events found for the specified period."
+
+        df = occ_df.merge(
+            events_df[["event_id", "event_translated", "importance", "currency", "category"]],
+            on="event_id",
+            how="left",
+        )
+
+        # Normalize currency filter (accept both "US" and "USD")
+        cur_filter = _INVESTING_CURRENCY_MAP.get(currency.upper(), currency.upper()) if currency else ""
+        if cur_filter:
+            df = df[df["currency"].str.upper() == cur_filter]
+
+        df = df.sort_values("occurrence_time").reset_index(drop=True)
+
+        impact_label = {"high": "[H]", "medium": "[M]", "low": "[L]"}
+        beat_label = {"positive": "+", "negative": "-", "neutral": "="}
+
+        def fmt_val(v, unit, precision):
+            if v is None or (isinstance(v, float) and pd.isna(v)):
+                return "N/A"
             try:
-                dt = datetime.fromisoformat(raw_time.replace("Z", "+00:00"))
-                time_str = dt.strftime("%Y-%m-%d %H:%M")
+                prec = int(precision) if pd.notna(precision) else 2
+                return f"{float(v):.{prec}f}{unit or ''}"
             except Exception:
-                time_str = raw_time[:19]
-            ctry = e.get("country", "")[:4]
-            impact = impact_label.get(e.get("impact", "").lower(), e.get("impact", ""))
-            event_name = e.get("event", "")[:39]
-            unit = e.get("unit", "")
+                return str(v)
 
-            def fmt_val(v):
-                if v is None or v == "":
-                    return "N/A"
-                try:
-                    return f"{float(v):.2f}{unit}"
-                except Exception:
-                    return str(v)
+        title_suffix = f", {cur_filter}" if cur_filter else ""
+        lines = [f"=== Economic Calendar (next {days_ahead} days{title_suffix}) — {len(df)} events ===\n"]
+        lines.append(f"{'UTC Time':<17} {'CCY':<5} {'Imp':<4} {'Event':<42} {'Prev':>12} {'Forecast':>12} {'Actual':>12} {'vs Est'}")
+        lines.append("-" * 112)
 
-            prev = fmt_val(e.get("prev"))
-            est = fmt_val(e.get("estimate"))
-            actual = fmt_val(e.get("actual"))
-            lines.append(f"{time_str:<20} {ctry:<5} {impact:<10} {event_name:<40} {prev:>10} {est:>10} {actual:>10}")
+        for _, row in df.iterrows():
+            try:
+                dt = datetime.fromisoformat(row["occurrence_time"].replace("Z", "+00:00"))
+                time_str = dt.strftime("%m-%d %H:%M UTC")
+            except Exception:
+                time_str = str(row["occurrence_time"])[:16]
 
-        if not events:
-            lines.append("No events found for the specified period.")
+            ccy = str(row.get("currency", ""))[:4]
+            imp = impact_label.get(str(row.get("importance", "")).lower(), "   ")
+            name = str(row.get("event_translated", ""))[:41]
+            unit_raw = row.get("unit")
+            unit = "" if unit_raw is None or (isinstance(unit_raw, float) and pd.isna(unit_raw)) else str(unit_raw)
+            prec = row.get("precision")
+            prev = fmt_val(row.get("previous"), unit, prec)
+            forecast = fmt_val(row.get("forecast"), unit, prec)
+            actual = fmt_val(row.get("actual"), unit, prec)
+            beat = beat_label.get(str(row.get("actual_to_forecast", "")), " ")
+            ref_raw = row.get("reference_period")
+            ref = "" if ref_raw is None or (isinstance(ref_raw, float) and pd.isna(ref_raw)) else str(ref_raw)
+
+            name_full = f"{name} {ref}".strip()[:41]
+            lines.append(f"{time_str:<17} {ccy:<5} {imp:<4} {name_full:<42} {prev:>12} {forecast:>12} {actual:>12}  {beat}")
+
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"
