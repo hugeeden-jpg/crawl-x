@@ -270,8 +270,8 @@ echo "─── Registering MCPs ───────────────�
 
 register() {
   local name="$1" script="$2"
-  claude mcp remove "$name" 2>/dev/null || true
-  claude mcp add "$name" -- uv run "$REPO_DIR/$script"
+  claude mcp remove -s user "$name" 2>/dev/null || true
+  claude mcp add -s user "$name" -- uv run "$REPO_DIR/$script"
   ok "Registered: $name"
 }
 
