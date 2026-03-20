@@ -162,6 +162,7 @@ _FINN_EXIST="$(json_get "$HOME/.config/market-data-mcp/config.json"    "finnhub_
 _QUIV_EXIST="$(json_get "$HOME/.config/sentiment-mcp/config.json"      "quiver_api_key")"
 _CGK_EXIST="$(json_get  "$HOME/.config/crypto-mcp/config.json"         "coingecko_api_key")"
 _GN_EXIST="$(json_get   "$HOME/.config/crypto-mcp/config.json"         "glassnode_api_key")"
+_SIMFIN_EXIST="$(json_get "$HOME/.config/market-data-mcp/config.json"   "simfin_api_key")"
 _TW_AUTH_EXIST="$(json_get "$HOME/.config/social-mcp/config.json"      "auth_token")"
 _TW_CT0_EXIST="$(json_get  "$HOME/.config/social-mcp/config.json"      "ct0")"
 
@@ -181,6 +182,15 @@ echo "│  1. Visit: https://finnhub.io"
 echo "│  2. Sign up → Dashboard → copy the API Key shown on the page"
 echo "└─"
 prompt_key FINNHUB_API_KEY    "  FINNHUB_API_KEY    (market-data, optional)" "$_FINN_EXIST"
+echo ""
+
+# ── SimFin (optional) ────────────────────────────────────────────────────────
+echo "┌─ [optional] SIMFIN_API_KEY — market-data-mcp (standardized cross-company financials)"
+echo "│  Free tier available (2000 req/day). Register at https://simfin.com"
+echo "│  1. Visit: https://simfin.com → Sign up (free)"
+echo "│  2. Confirm your email → Account → API Key"
+echo "└─"
+prompt_key SIMFIN_API_KEY     "  SIMFIN_API_KEY     (market-data, optional)" "$_SIMFIN_EXIST"
 echo ""
 
 # ── XAI / Grok (optional) ────────────────────────────────────────────────────
@@ -254,7 +264,8 @@ PY
 }
 
 write_config "$HOME/.config/grok-mcp/config.json"          "api_key=$XAI_API_KEY"
-write_config "$HOME/.config/market-data-mcp/config.json"   "finnhub_api_key=$FINNHUB_API_KEY"
+write_config "$HOME/.config/market-data-mcp/config.json"   "finnhub_api_key=$FINNHUB_API_KEY" \
+                                                            "simfin_api_key=$SIMFIN_API_KEY"
 write_config "$HOME/.config/macro-mcp/config.json"         "fred_api_key=$FRED_API_KEY"
 write_config "$HOME/.config/sentiment-mcp/config.json"     "quiver_api_key=$QUIVER_API_KEY"
 write_config "$HOME/.config/crypto-mcp/config.json"        "coingecko_api_key=$COINGECKO_API_KEY" \
@@ -282,6 +293,7 @@ register "macro-data"        "macro-mcp/server.py"
 register "sentiment-data"    "sentiment-mcp/server.py"
 register "financial-scraper" "scrape-mcp/server.py"
 register "social-data"       "social-mcp/server.py"
+register "news-data"         "news-mcp/server.py"
 
 # ── optionally generate Claude Desktop config ─────────────────────────────────
 
@@ -300,7 +312,8 @@ if $DESKTOP_MODE; then
     "macro-data":        {"command": "uv", "args": ["run", "$REPO_DIR/macro-mcp/server.py"]},
     "sentiment-data":    {"command": "uv", "args": ["run", "$REPO_DIR/sentiment-mcp/server.py"]},
     "financial-scraper": {"command": "uv", "args": ["run", "$REPO_DIR/scrape-mcp/server.py"]},
-    "social-data":       {"command": "uv", "args": ["run", "$REPO_DIR/social-mcp/server.py"]}
+    "social-data":       {"command": "uv", "args": ["run", "$REPO_DIR/social-mcp/server.py"]},
+    "news-data":         {"command": "uv", "args": ["run", "$REPO_DIR/news-mcp/server.py"]}
   }
 }
 JSON
@@ -333,6 +346,7 @@ install_skill "sentiment-mcp"            "sentiment-mcp/SKILL.md"
 install_skill "crypto-mcp"               "crypto-mcp/SKILL.md"
 install_skill "scrape-mcp"               "scrape-mcp/SKILL.md"
 install_skill "social-mcp"               "social-mcp/SKILL.md"
+install_skill "news-mcp"                 "news-mcp/SKILL.md"
 
 # ── done ──────────────────────────────────────────────────────────────────────
 

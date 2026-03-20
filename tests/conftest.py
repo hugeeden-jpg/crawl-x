@@ -52,6 +52,13 @@ def has_quiver_key() -> bool:
     return cfg.exists() and bool(json.loads(cfg.read_text()).get("quiver_api_key"))
 
 
+def has_simfin_key() -> bool:
+    if os.environ.get("SIMFIN_API_KEY"):
+        return True
+    cfg = Path.home() / ".config" / "market-data-mcp" / "config.json"
+    return cfg.exists() and bool(json.loads(cfg.read_text()).get("simfin_api_key"))
+
+
 def has_glassnode_key() -> bool:
     return bool(os.environ.get("GLASSNODE_API_KEY"))
 
@@ -93,6 +100,11 @@ def scrape():
 @pytest.fixture(scope="session")
 def grok():
     return load_server("grok-mcp")
+
+
+@pytest.fixture(scope="session")
+def news():
+    return load_server("news-mcp")
 
 
 # ── rate-limit / transient-error helper ──────────────────────────────────────

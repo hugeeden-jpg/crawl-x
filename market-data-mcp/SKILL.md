@@ -29,7 +29,7 @@ Claude Desktop config:
 
 | Tool | Key Required | Description |
 |------|-------------|-------------|
-| `configure(finnhub_api_key)` | — | Save Finnhub API key |
+| `configure(finnhub_api_key, simfin_api_key)` | — | Save API keys |
 | `get_quote(ticker)` | No | Current price, change%, volume, market cap |
 | `get_stock_info(ticker)` | No | Company profile, PE, EPS, beta |
 | `get_stock_history(ticker, period, interval)` | No | OHLCV history table |
@@ -39,6 +39,7 @@ Claude Desktop config:
 | `get_company_news(ticker, days)` | Yes | Company-specific news |
 | `get_earnings_calendar(days_ahead)` | Yes | Upcoming earnings with estimates |
 | `get_news_sentiment(ticker)` | Yes | Buzz score + bullish/bearish % |
+| `get_simfin_financials(ticker, statement, period)` | SimFin | Standardized cross-company financials |
 
 ## Usage Patterns
 
@@ -60,6 +61,8 @@ get_stock_history("SPY", period="1y", interval="1wk")
 ## Notes
 - yfinance data is 15-min delayed for US markets
 - Finnhub free tier: 60 calls/minute
+- SimFin free tier: 2000 req/day — register at https://simfin.com, then `configure(simfin_api_key=...)`
 - `statement` values: `income`, `balance`, `cashflow`
-- `period` values: `1d`, `5d`, `1mo`, `3mo`, `6mo`, `1y`, `2y`, `5y`
+- `period` values (history): `1d`, `5d`, `1mo`, `3mo`, `6mo`, `1y`, `2y`, `5y`
+- `period` values (SimFin): `ttm`, `q1`, `q2`, `q3`, `q4`, `fy`
 - `interval` values: `1m`, `5m`, `15m`, `1h`, `1d`, `1wk`, `1mo`

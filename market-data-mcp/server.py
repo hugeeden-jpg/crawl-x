@@ -29,6 +29,7 @@ from mcp.server.fastmcp import FastMCP
 
 CONFIG_FILE = Path.home() / ".config" / "market-data-mcp" / "config.json"
 FINNHUB_BASE = "https://finnhub.io/api/v1"
+SIMFIN_BASE = "https://backend.simfin.com/api/v3"
 
 mcp = FastMCP("market-data")
 
@@ -45,6 +46,31 @@ def load_finnhub_key() -> str:
     return ""
 
 
+def load_simfin_key() -> str:
+    key = os.environ.get("SIMFIN_API_KEY", "")
+    if key:
+        return key
+    if CONFIG_FILE.exists():
+        cfg = json.loads(CONFIG_FILE.read_text())
+        key = cfg.get("simfin_api_key", "")
+        if key:
+            return key
+    return ""
+
+
+def simfin_get(path: str, params: dict):
+    key = load_simfin_key()
+    if not key:
+        raise ValueError(
+            "SimFin API key not configured. Register free at https://simfin.com, "
+            "then use configure(simfin_api_key='your_key') tool."
+        )
+    headers = {"Authorization": f"api-key {key}"}
+    r = requests.get(f"{SIMFIN_BASE}{path}", params=params, headers=headers, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+
 def finnhub_get(endpoint: str, params: dict) -> dict:
     key = load_finnhub_key()
     if not key:
@@ -56,11 +82,22 @@ def finnhub_get(endpoint: str, params: dict) -> dict:
 
 
 @mcp.tool()
-def configure(finnhub_api_key: str) -> str:
-    """Save Finnhub API key to config file (~/.config/market-data-mcp/config.json)"""
+def configure(finnhub_api_key: str = "", simfin_api_key: str = "") -> str:
+    """Save API keys to config file (~/.config/market-data-mcp/config.json)
+
+    Args:
+        finnhub_api_key: Finnhub API key (https://finnhub.io)
+        simfin_api_key: SimFin API key, register free at https://simfin.com
+    """
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-    CONFIG_FILE.write_text(json.dumps({"finnhub_api_key": finnhub_api_key}, indent=2))
-    return f"Finnhub API key saved to {CONFIG_FILE}"
+    cfg = json.loads(CONFIG_FILE.read_text()) if CONFIG_FILE.exists() else {}
+    if finnhub_api_key:
+        cfg["finnhub_api_key"] = finnhub_api_key
+    if simfin_api_key:
+        cfg["simfin_api_key"] = simfin_api_key
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+    saved = [k for k, v in [("Finnhub", finnhub_api_key), ("SimFin", simfin_api_key)] if v]
+    return f"Saved {', '.join(saved) or 'no'} key(s) to {CONFIG_FILE}"
 
 
 @mcp.tool()
@@ -350,6 +387,77 @@ def get_news_sentiment(ticker: str) -> str:
         lines.append(f"  Bullish:           {sentiment.get('bullishPercent', 'N/A')}")
         lines.append(f"  Sector Avg Bull:   {data.get('sectorAverageBullishPercent', 'N/A')}")
         lines.append(f"  Sector Avg Bear:   {data.get('sectorAverageBearishPercent', 'N/A')}")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_simfin_financials(ticker: str, statement: str = "income", period: str = "ttm") -> str:
+    """
+    Get standardized financial statements via SimFin (requires free API key from simfin.com)
+
+    Args:
+        ticker: Stock ticker symbol (e.g. AAPL, TSLA, NVDA)
+        statement: income, balance, cashflow, or derived (default: income)
+        period: ttm, q1, q2, q3, q4, fy, h1, h2 (default: ttm)
+    """
+    try:
+        stmt_map = {"income": "pl", "balance": "bs", "cashflow": "cf", "derived": "derived"}
+        stmt_code = stmt_map.get(statement.lower())
+        if not stmt_code:
+            return "Invalid statement. Use: income, balance, cashflow, or derived"
+
+        valid_periods = {"ttm", "q1", "q2", "q3", "q4", "fy", "h1", "h2", "nine_month"}
+        period_lower = period.lower()
+        if period_lower not in valid_periods:
+            return f"Invalid period. Use: ttm, q1, q2, q3, q4, fy, h1, h2"
+
+        params: dict = {"ticker": ticker.upper(), "statements": stmt_code}
+        if period_lower == "ttm":
+            params["ttm"] = "true"
+        else:
+            params["period"] = period_lower
+
+        data = simfin_get("/companies/statements/verbose", params)
+        if not data:
+            return f"Company not found: {ticker}"
+
+        entry = data[0]
+        stmts = entry.get("statements", [])
+        if not stmts or not stmts[0].get("data"):
+            return f"No {statement} data for {ticker} ({period})"
+
+        row = stmts[0]["data"][-1]  # most recent period
+        currency = entry.get("currency", "USD")
+
+        title_map = {
+            "income": "Income Statement (P&L)", "balance": "Balance Sheet",
+            "cashflow": "Cash Flow Statement", "derived": "Derived Ratios & Indicators",
+        }
+        period_label = "TTM" if period_lower == "ttm" else period.upper()
+        lines = [f"=== {ticker.upper()} {title_map[statement]} ({period_label}) — SimFin ==="]
+        lines.append(
+            f"Period: {row.get('Fiscal Period', '')} FY{row.get('Fiscal Year', '')} | "
+            f"Report Date: {row.get('Report Date', '')} | Currency: {currency}\n"
+        )
+        lines.append(f"{'Metric':<50} {'Value':>18}")
+        lines.append("-" * 70)
+
+        SKIP = {"Fiscal Period", "Fiscal Year", "Report Date", "Publish Date",
+                "Restated", "Source", "TTM", "Value Check", "Data Model"}
+        for k, v in row.items():
+            if k in SKIP or v is None:
+                continue
+            name = str(k)[:49]
+            if isinstance(v, (int, float)) and abs(v) >= 1000:
+                val_str = f"${v / 1e6:>16.1f}M"
+            elif isinstance(v, float):
+                val_str = f"{v:>18.4f}"
+            else:
+                val_str = f"{str(v):>18}"
+            lines.append(f"{name:<50} {val_str}")
+
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"
