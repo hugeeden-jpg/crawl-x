@@ -40,7 +40,7 @@ Claude Desktop config:
 | `get_earnings_calendar(days_ahead)` | Yes | Upcoming earnings with estimates |
 | `get_economic_calendar(days_ahead, country)` | Yes (premium) | Upcoming macro events: CPI, NFP, GDP, FOMC, PMI |
 | `get_ipo_calendar(days_ahead)` | Yes | Upcoming IPO listings with price range and exchange |
-| `get_dividend_calendar(ticker)` | No | Ex-dividend date, payment date, yield estimate |
+| `get_dividend_calendar(ticker, timeframe, country)` | No | Per-stock: ex-div date, payment date, yield (yfinance). Market-wide (no ticker): all stocks going ex-div in timeframe via Investing.com |
 | `get_options_expiry(ticker)` | No | Options expiration dates with call/put OI and P/C ratio |
 | `get_news_sentiment(ticker)` | Yes | Buzz score + bullish/bearish % |
 | `get_simfin_financials(ticker, statement, period)` | SimFin | Standardized cross-company financials |
@@ -59,7 +59,12 @@ get_earnings_calendar(14) → get_analyst_recommendations("AAPL") → get_news_s
 
 **Calendar suite:**
 ```
-get_economic_calendar(7, "US") → get_ipo_calendar(30) → get_dividend_calendar("AAPL") → get_options_expiry("SPY")
+get_economic_calendar(7, "US") → get_ipo_calendar(30) → get_dividend_calendar(timeframe="thisWeek", country="US") → get_options_expiry("SPY")
+```
+
+**Per-stock dividend check:**
+```
+get_dividend_calendar("AAPL")
 ```
 
 **Historical analysis:**

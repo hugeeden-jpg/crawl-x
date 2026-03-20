@@ -101,6 +101,10 @@ Restart Claude Desktop to load the MCPs.
 | `get_market_news` | General or category market news (Finnhub) |
 | `get_company_news` | News for a specific ticker (Finnhub) |
 | `get_earnings_calendar` | Upcoming earnings dates (Finnhub) |
+| `get_economic_calendar` | Macro events: CPI, NFP, GDP, FOMC, PMI (Investing.com, no key) |
+| `get_ipo_calendar` | Upcoming IPO listings with price range and exchange (Finnhub) |
+| `get_dividend_calendar` | Per-stock: ex-div date, pay date, yield (yfinance). Market-wide (no ticker): all stocks going ex-div by timeframe/country (Investing.com, no key) |
+| `get_options_expiry` | Options expiry dates + call/put OI + P/C ratio (yfinance) |
 | `get_news_sentiment` | News sentiment and buzz score (Finnhub) |
 | `get_simfin_financials` | Standardized income / balance / cashflow / derived ratios (SimFin) |
 

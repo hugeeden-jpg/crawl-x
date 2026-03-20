@@ -4,6 +4,7 @@
 #   "mcp[cli]>=1.0.0",
 #   "yfinance>=0.2.0",
 #   "requests>=2.31.0",
+#   "beautifulsoup4>=4.12.0",
 # ]
 # ///
 """
@@ -20,7 +21,9 @@ from pathlib import Path
 _brew_ca = Path("/opt/homebrew/etc/openssl@3/cert.pem")
 if _brew_ca.exists():
     os.environ.setdefault("CURL_CA_BUNDLE", str(_brew_ca))
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", str(_brew_ca))
 import requests
+from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -372,6 +375,16 @@ _INVESTING_CURRENCY_MAP = {
     "HK": "HKD", "SG": "SGD", "IN": "INR", "BR": "BRL", "MX": "MXN",
 }
 
+# Dividend calendar country IDs (Investing.com POST body format)
+# Maps short code → Investing.com numeric country ID
+_DIV_COUNTRY_MAP = {
+    "US": "37", "UK": "36", "DE": "5",  "FR": "4",  "CA": "39",
+    "JP": "35", "CN": "14", "AU": "25", "HK": "39", "KR": "22",
+    "CH": "6",  "NZ": "32", "SG": "48", "IN": "41", "BR": "32",
+}
+# Default: same major economies as economic calendar
+_DIV_DEFAULT_COUNTRY_IDS = ["37", "36", "5", "4", "39", "35", "14", "25", "22", "6", "48", "41"]
+
 
 @mcp.tool()
 def get_economic_calendar(days_ahead: int = 7, currency: str = "") -> str:
@@ -507,47 +520,160 @@ def get_ipo_calendar(days_ahead: int = 30) -> str:
 
 
 @mcp.tool()
-def get_dividend_calendar(ticker: str) -> str:
+def get_dividend_calendar(
+    ticker: str = "",
+    timeframe: str = "thisWeek",
+    country: str = "",
+) -> str:
     """
-    Get upcoming ex-dividend date and recent dividend history for a stock via yfinance
+    Dividend calendar in two modes:
+
+    1. Per-stock (ticker provided): upcoming ex-dividend date, payment date, and
+       recent dividend history for that ticker via yfinance.
+
+    2. Market-wide (no ticker): all stocks going ex-dividend in the given timeframe,
+       scraped from Investing.com. Shows company, ex-div date, dividend amount,
+       frequency, payment date, and yield.
 
     Args:
-        ticker: Stock ticker symbol (e.g. AAPL, MSFT, JNJ)
+        ticker:    Stock ticker for per-stock mode (e.g. AAPL). Leave empty for market scan.
+        timeframe: Market-wide mode only — one of "today", "tomorrow", "thisWeek", "nextWeek".
+                   Default "thisWeek".
+        country:   Market-wide mode only — filter by country code: US, UK, DE, FR, CA, JP,
+                   CN, AU, HK, KR, CH, SG, IN. Leave empty for all major markets.
     """
-    try:
-        t = yf.Ticker(ticker.upper())
-        lines = [f"=== Dividend Calendar: {ticker.upper()} ===\n"]
-
-        # Upcoming dividend from calendar
+    # ── Per-stock mode ────────────────────────────────────────────────────────
+    if ticker:
         try:
-            cal = t.calendar
-            ex_div = cal.get("Ex-Dividend Date", "N/A")
-            pay_date = cal.get("Dividend Date", "N/A")
-            lines.append("Upcoming:")
-            lines.append(f"  Ex-Dividend Date : {ex_div}")
-            lines.append(f"  Payment Date     : {pay_date}")
-        except Exception:
-            lines.append("Upcoming: N/A")
+            t = yf.Ticker(ticker.upper())
+            lines = [f"=== Dividend Calendar: {ticker.upper()} ===\n"]
 
-        # Recent dividend history
-        divs = t.dividends
-        if divs is not None and not divs.empty:
-            lines.append(f"\nRecent Dividend History (last 8 payments):")
-            lines.append(f"{'Date':<14} {'Amount':>10}")
-            lines.append("-" * 26)
-            for dt, amount in divs.tail(8).items():
-                date_str = str(dt.date()) if hasattr(dt, "date") else str(dt)[:10]
-                lines.append(f"{date_str:<14} ${amount:.4f}")
+            try:
+                cal = t.calendar
+                ex_div = cal.get("Ex-Dividend Date", "N/A")
+                pay_date = cal.get("Dividend Date", "N/A")
+                lines.append("Upcoming:")
+                lines.append(f"  Ex-Dividend Date : {ex_div}")
+                lines.append(f"  Payment Date     : {pay_date}")
+            except Exception:
+                lines.append("Upcoming: N/A")
 
-            # Annualized yield estimate
-            info = t.fast_info
-            price = getattr(info, "last_price", None)
-            if price and len(divs) >= 4:
-                annual = float(divs.tail(4).sum())
-                yield_pct = annual / price * 100
-                lines.append(f"\nTrailing 4-payment annualized: ${annual:.4f} ({yield_pct:.2f}% yield at ${price:.2f})")
+            divs = t.dividends
+            if divs is not None and not divs.empty:
+                lines.append("\nRecent Dividend History (last 8 payments):")
+                lines.append(f"{'Date':<14} {'Amount':>10}")
+                lines.append("-" * 26)
+                for dt, amount in divs.tail(8).items():
+                    date_str = str(dt.date()) if hasattr(dt, "date") else str(dt)[:10]
+                    lines.append(f"{date_str:<14} ${amount:.4f}")
+
+                info = t.fast_info
+                price = getattr(info, "last_price", None)
+                if price and len(divs) >= 4:
+                    annual = float(divs.tail(4).sum())
+                    yield_pct = annual / price * 100
+                    lines.append(f"\nTrailing 4-payment annualized: ${annual:.4f} ({yield_pct:.2f}% yield at ${price:.2f})")
+            else:
+                lines.append("\nNo dividend history found.")
+
+            return "\n".join(lines)
+        except Exception as e:
+            return f"Error: {e}"
+
+    # ── Market-wide mode ──────────────────────────────────────────────────────
+    try:
+        valid_tabs = {"today", "tomorrow", "thisWeek", "nextWeek"}
+        tab = timeframe if timeframe in valid_tabs else "thisWeek"
+
+        # Build country_ids list for POST body
+        country_upper = country.upper()
+        if country_upper and country_upper in _DIV_COUNTRY_MAP:
+            cids = [_DIV_COUNTRY_MAP[country_upper]]
         else:
-            lines.append("\nNo dividend history found.")
+            cids = _DIV_DEFAULT_COUNTRY_IDS
+
+        body_parts = [f"country%5B%5D={cid}" for cid in cids]
+        body_parts += [f"currentTab={tab}", "limit_from=0"]
+        body = "&".join(body_parts)
+
+        r = requests.post(
+            "https://cn.investing.com/dividends-calendar/Service/getCalendarFilteredData",
+            headers={
+                "accept": "*/*",
+                "accept-language": "zh-CN,zh;q=0.9",
+                "content-type": "application/x-www-form-urlencoded",
+                "x-requested-with": "XMLHttpRequest",
+                "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "referer": "https://cn.investing.com/dividends-calendar/",
+            },
+            data=body,
+            timeout=15,
+        )
+        r.raise_for_status()
+        payload = r.json()
+
+        rows_num = payload.get("rows_num", 0)
+        date_from = payload.get("dateFrom", "")
+        date_to = payload.get("dateTo", "")
+        html = payload.get("data", "")
+
+        soup = BeautifulSoup(html, "html.parser")
+        rows = soup.find_all("tr")
+
+        lines = [f"=== Dividend Calendar ({tab}) ==="]
+        if date_from == date_to:
+            lines.append(f"Date: {date_from}  |  Results: {rows_num}")
+        else:
+            lines.append(f"Period: {date_from} → {date_to}  |  Results: {rows_num}")
+        if country_upper and country_upper in _DIV_COUNTRY_MAP:
+            lines.append(f"Filter: {country_upper}")
+        lines.append("")
+        lines.append(f"{'Company':<35} {'Ticker':<8} {'Ex-Div':<14} {'Dividend':>10} {'Freq':<6} {'Pay Date':<14} {'Yield':>7}  Country")
+        lines.append("-" * 110)
+
+        count = 0
+        for row in rows:
+            # Skip date-header rows
+            if row.get("tablesorterdivider") is not None:
+                continue
+            tds = row.find_all("td")
+            if len(tds) < 7:
+                continue
+
+            # td[0]: country flag
+            flag_span = tds[0].find("span")
+            country_name = flag_span.get("title", "") if flag_span else ""
+
+            # td[1]: company name + ticker
+            name_span = tds[1].find("span", class_="earnCalCompanyName")
+            company_name = name_span.get_text(strip=True) if name_span else tds[1].get_text(strip=True)
+            ticker_a = tds[1].find("a", class_="bold")
+            sym = ticker_a.get_text(strip=True) if ticker_a else ""
+
+            # td[2]: ex-dividend date
+            ex_date = tds[2].get_text(strip=True)
+
+            # td[3]: dividend amount
+            div_amount = tds[3].get_text(strip=True)
+
+            # td[4]: frequency (span title)
+            freq_span = tds[4].find("span")
+            freq = freq_span.get("title", "") if freq_span else tds[4].get_text(strip=True)
+
+            # td[5]: payment date
+            pay_date = tds[5].get_text(strip=True)
+
+            # td[6]: yield
+            div_yield = tds[6].get_text(strip=True)
+
+            company_col = company_name[:34]
+            lines.append(
+                f"{company_col:<35} {sym:<8} {ex_date:<14} {div_amount:>10} {freq:<6} {pay_date:<14} {div_yield:>7}  {country_name}"
+            )
+            count += 1
+
+        if count == 0:
+            lines.append("No dividend events found for the selected period/country.")
 
         return "\n".join(lines)
     except Exception as e:
