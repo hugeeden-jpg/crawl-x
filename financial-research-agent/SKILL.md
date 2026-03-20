@@ -56,49 +56,20 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 ```json
 {
   "mcpServers": {
-    "grok-news": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/grok-mcp/server.py"],
-      "env": {"XAI_API_KEY": "xai-..."}
-    },
-    "market-data": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/market-data-mcp/server.py"],
-      "env": {"FINNHUB_API_KEY": "..."}
-    },
-    "macro-data": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/macro-mcp/server.py"],
-      "env": {"FRED_API_KEY": "..."}
-    },
-    "sentiment-data": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/sentiment-mcp/server.py"],
-      "env": {"QUIVER_API_KEY": "..."}
-    },
-    "crypto-data": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/crypto-mcp/server.py"],
-      "env": {"GLASSNODE_API_KEY": "...", "COINGECKO_API_KEY": ""}
-    },
-    "financial-scraper": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/scrape-mcp/server.py"]
-    },
-    "social-data": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/social-mcp/server.py"],
-      "env": {
-        "TWITTER_AUTH_TOKEN": "...",
-        "TWITTER_CT0": "..."
-      }
-    },
-    "news-data": {
-      "command": "uv",
-      "args": ["run", "/Users/eden/crawl-x/news-mcp/server.py"]
-    }
+    "grok-news":         {"command": "uv", "args": ["run", "/path/to/crawl-x/grok-mcp/server.py"]},
+    "market-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/market-data-mcp/server.py"]},
+    "macro-data":        {"command": "uv", "args": ["run", "/path/to/crawl-x/macro-mcp/server.py"]},
+    "sentiment-data":    {"command": "uv", "args": ["run", "/path/to/crawl-x/sentiment-mcp/server.py"]},
+    "crypto-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/crypto-mcp/server.py"]},
+    "financial-scraper": {"command": "uv", "args": ["run", "/path/to/crawl-x/scrape-mcp/server.py"]},
+    "social-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/social-mcp/server.py"]},
+    "news-data":         {"command": "uv", "args": ["run", "/path/to/crawl-x/news-mcp/server.py"]}
   }
 }
+```
+
+> **No `env` fields needed.** All API keys are stored in `~/.config/<mcp>/config.json` by `install.sh`.
+> Replace `/path/to/crawl-x` with the actual repo path, or run `bash install.sh --desktop` to auto-generate this file.
 ```
 
 ## MCP Decision Tree
