@@ -5,6 +5,7 @@
 #   "requests>=2.31.0",
 #   "beautifulsoup4>=4.12.0",
 #   "scrapling[all]>=0.4.2",
+#   "plotly>=5.0.0",
 # ]
 # ///
 """
@@ -504,6 +505,314 @@ def search_theblock(query: str, size: int = 10, fetch_body: bool = False, fetch_
         return "\n".join(lines)
     except Exception as e:
         return f"Error searching The Block: {e}"
+
+
+# ── QuiverQuant congressional trading ────────────────────────────────────────
+
+_CACHE_DIR = Path.home() / ".cache" / "scrape-mcp"
+
+
+def _qv_cache_json(ticker: str, date_str: str) -> Path:
+    return _CACHE_DIR / f"quiverquant_{ticker.upper()}_{date_str}.json"
+
+
+def _qv_chart_path(ticker: str, date_str: str) -> Path:
+    return _CACHE_DIR / f"quiverquant_{ticker.upper()}_{date_str}.html"
+
+
+def _qv_csv_path(ticker: str, date_str: str) -> Path:
+    return _CACHE_DIR / f"quiverquant_{ticker.upper()}_{date_str}.csv"
+
+
+def _qv_load_cache(ticker: str) -> dict | None:
+    today = datetime.now().strftime("%Y-%m-%d")
+    p = _qv_cache_json(ticker, today)
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            pass
+    return None
+
+
+def _qv_save_cache(ticker: str, data: dict) -> None:
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    today = datetime.now().strftime("%Y-%m-%d")
+    _qv_cache_json(ticker, today).write_text(
+        json.dumps(data, ensure_ascii=False), encoding="utf-8"
+    )
+
+
+def _qv_parse_raw(raw: str, ticker: str) -> dict:
+    """Parse raw SSR HTML → {traces: list, table: list[dict]}"""
+    from scrapling.parser import Selector
+
+    # ── Plotly traces ──────────────────────────────────────────────────────
+    traces = []
+    inline_scripts = re.findall(r"<script(?:[^>]*?)>(.*?)</script>", raw, re.DOTALL)
+    for body in inline_scripts:
+        if "Plotly.newPlot" not in body:
+            continue
+        np_m = re.search(r"Plotly\.newPlot\(\s*['\"]?[\w-]+['\"]?\s*,\s*(\[)", body)
+        if not np_m:
+            continue
+        start = np_m.start(1)
+        depth, end = 0, start
+        for j, ch in enumerate(body[start:], start):
+            if ch == "[":
+                depth += 1
+            elif ch == "]":
+                depth -= 1
+                if depth == 0:
+                    end = j
+                    break
+        try:
+            traces = json.loads(body[start : end + 1])
+        except json.JSONDecodeError:
+            pass
+        break
+
+    # ── Congress trades table ──────────────────────────────────────────────
+    rows = []
+    doc = Selector(raw)
+    tables = doc.css("table.table-congress")
+    if tables:
+        for row in tables[0].css("tbody tr"):
+            cells = [td.get_all_text(separator="|", strip=True) for td in row.css("td")]
+            if len(cells) < 5:
+                continue
+            c0 = [p.strip() for p in cells[0].split("|")]
+            sym     = c0[0] if c0 else ""
+            company = c0[1] if len(c0) > 1 else ""
+
+            c1 = [p.strip() for p in cells[1].split("|")]
+            txn_type = c1[0] if c1 else ""
+            amount   = c1[1] if len(c1) > 1 else ""
+
+            c2 = [p.strip() for p in cells[2].split("|")]
+            pol_name      = c2[0] if c2 else ""
+            chamber_party = c2[1] if len(c2) > 1 else ""
+
+            rows.append({
+                "ticker":        sym,
+                "company":       company,
+                "type":          txn_type,
+                "amount":        amount,
+                "politician":    pol_name,
+                "chamber_party": chamber_party,
+                "filed":         cells[3] if len(cells) > 3 else "",
+                "traded":        cells[4] if len(cells) > 4 else "",
+                "description":   cells[5] if len(cells) > 5 else "",
+            })
+
+    return {"ticker": ticker.upper(), "traces": traces, "table": rows}
+
+
+async def _qv_fetch(ticker: str) -> dict:
+    captured = {}
+    url = f"https://www.quiverquant.com/congresstrading/stock/{ticker.upper()}"
+
+    def page_action(page):
+        captured["html"] = page.evaluate(f"fetch('{url}').then(r => r.text())")
+
+    def _run():
+        StealthyFetcher.fetch(
+            url, headless=True, network_idle=True,
+            page_action=page_action, timeout=60000,
+        )
+
+    await asyncio.to_thread(_run)
+    raw = captured.get("html", "")
+    if not raw:
+        raise RuntimeError("No HTML captured from QuiverQuant")
+    return _qv_parse_raw(raw, ticker)
+
+
+def _qv_write_csv(ticker: str, date_str: str, table: list) -> Path:
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    p = _qv_csv_path(ticker, date_str)
+    if not table:
+        p.write_text("no data\n", encoding="utf-8")
+        return p
+    headers = list(table[0].keys())
+    lines = [",".join(f'"{h}"' for h in headers)]
+    for row in table:
+        lines.append(",".join(
+            f'"{str(row.get(h, "")).replace(chr(34), chr(39))}"' for h in headers
+        ))
+    p.write_text("\n".join(lines), encoding="utf-8")
+    return p
+
+
+def _qv_write_chart(ticker: str, date_str: str, traces: list) -> Path | None:
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        return None
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    p = _qv_chart_path(ticker, date_str)
+
+    _COLORS = {
+        "Closing Price":   ("#94a3b8", "lines"),
+        "Stock Sales":     ("#ef4444", "markers"),
+        "Stock Purchases": ("#22c55e", "markers"),
+    }
+    fig = go.Figure()
+    for trace in traces:
+        name      = trace.get("name", "")
+        x         = trace.get("x", [])
+        y         = trace.get("y", [])
+        raw_text  = trace.get("text", [])
+        text      = [t[0] if isinstance(t, list) else t for t in raw_text]
+        color, mode = _COLORS.get(name, ("#818cf8", "markers"))
+        if mode == "lines":
+            fig.add_trace(go.Scatter(
+                x=x, y=y, name=name, mode=mode,
+                line=dict(color=color, width=1),
+            ))
+        else:
+            fig.add_trace(go.Scatter(
+                x=x, y=y, name=name, mode=mode,
+                marker=dict(color=color, size=9, symbol="circle"),
+                text=text, hovertemplate="%{text}<extra></extra>",
+            ))
+
+    fig.update_layout(
+        title=f"Congressional Trading — {ticker.upper()}",
+        xaxis_title="Date",
+        yaxis_title="Price (USD)",
+        hovermode="closest",
+        template="plotly_dark",
+        height=600,
+    )
+    fig.write_html(str(p))
+    return p
+
+
+@mcp.tool()
+async def get_quiverquant_congress(
+    ticker: str,
+    use_cache: bool = True,
+    output: str = "both",
+) -> str:
+    """
+    Get congressional trading data for a stock from QuiverQuant.
+    Saves a Plotly chart (HTML, auto-opened in browser) and/or a CSV file.
+
+    Args:
+        ticker: Stock ticker symbol (e.g. GOOGL, AAPL)
+        use_cache: Use today's cached data if available (default True).
+                   Set False to force a fresh fetch.
+        output: What to generate — "chart" | "csv" | "both" (default "both")
+    """
+    import subprocess
+    from collections import Counter
+
+    try:
+        ticker = ticker.upper()
+        today  = datetime.now().strftime("%Y-%m-%d")
+
+        # ── Load or fetch ──────────────────────────────────────────────────
+        data         = None
+        cache_status = "miss"
+        if use_cache:
+            data = _qv_load_cache(ticker)
+            if data:
+                cache_status = "hit"
+        if data is None:
+            data = await _qv_fetch(ticker)
+            _qv_save_cache(ticker, data)
+            cache_status = "fetched"
+
+        traces = data.get("traces", [])
+        table  = data.get("table", [])
+
+        # ── Summary stats ──────────────────────────────────────────────────
+        total     = len(table)
+        purchases = sum(1 for r in table if "Purchase" in r.get("type", ""))
+        sales     = sum(1 for r in table if "Sale"     in r.get("type", ""))
+
+        pol_counts = Counter(r["politician"] for r in table)
+        top_pols   = pol_counts.most_common(5)
+
+        cutoff = (datetime.now() - timedelta(days=90)).date()
+        recent = []
+        for r in table:
+            try:
+                if datetime.strptime(r["traded"], "%b %d, %Y").date() >= cutoff:
+                    recent.append(r)
+            except Exception:
+                pass
+
+        lines = [f"=== QuiverQuant Congressional Trades: {ticker} ===\n"]
+        lines.append(f"Cache: {cache_status}  |  As of: {today}")
+        lines.append(f"Total: {total}  |  Purchases: {purchases}  |  Sales: {sales}\n")
+
+        if top_pols:
+            lines.append("Top politicians by trade count:")
+            for pol, cnt in top_pols:
+                lines.append(f"  {pol:<30} {cnt} trades")
+            lines.append("")
+
+        if recent:
+            lines.append(f"Recent trades (last 90d): {len(recent)}")
+            lines.append(f"{'Traded':<15} {'Politician':<28} {'Type':<10} {'Amount'}")
+            lines.append("-" * 75)
+            for r in recent[:20]:
+                lines.append(
+                    f"{r['traded'][:14]:<15} {r['politician'][:27]:<28}"
+                    f" {r['type'][:9]:<10} {r['amount']}"
+                )
+            if len(recent) > 20:
+                lines.append(f"  ... ({len(recent) - 20} more — see CSV)")
+        else:
+            lines.append("No trades in last 90 days.")
+
+        # ── CSV ────────────────────────────────────────────────────────────
+        if output in ("csv", "both"):
+            csv_p = _qv_write_csv(ticker, today, table)
+            lines.append(f"\nCSV  : {csv_p}")
+
+        # ── Chart ──────────────────────────────────────────────────────────
+        if output in ("chart", "both"):
+            chart_p = _qv_write_chart(ticker, today, traces)
+            if chart_p:
+                lines.append(f"Chart: {chart_p}")
+                try:
+                    subprocess.Popen(["open", str(chart_p)])
+                    lines.append("       (opened in browser)")
+                except Exception:
+                    pass
+            else:
+                lines.append("Chart: plotly not installed — run: uv pip install plotly")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error fetching QuiverQuant data for {ticker}: {e}"
+
+
+@mcp.tool()
+def clear_quiverquant_cache(ticker: str = None) -> str:
+    """
+    Clear local QuiverQuant cache files (.json, .html, .csv).
+
+    Args:
+        ticker: Clear only this ticker's cache (optional).
+                If omitted, clears all QuiverQuant cache files.
+    """
+    if not _CACHE_DIR.exists():
+        return "Cache directory does not exist — nothing to clear."
+    pattern = f"quiverquant_{ticker.upper()}_*" if ticker else "quiverquant_*"
+    files = sorted(_CACHE_DIR.glob(pattern))
+    if not files:
+        return f"No cache files found{' for ' + ticker.upper() if ticker else ''}."
+    for f in files:
+        f.unlink()
+    noun = f" for {ticker.upper()}" if ticker else ""
+    return (
+        f"Cleared {len(files)} cache file(s){noun}:\n"
+        + "\n".join(f"  {f.name}" for f in files)
+    )
 
 
 if __name__ == "__main__":

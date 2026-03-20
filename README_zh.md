@@ -12,7 +12,7 @@
 | `macro-mcp` | `macro-data` | FRED 经济数据、SEC EDGAR 文件 | FRED（必须） |
 | `crypto-mcp` | `crypto-data` | CoinGecko 价格、DeFi TVL、Glassnode 链上数据 | 可选 |
 | `sentiment-mcp` | `sentiment-data` | 恐慌贪婪指数、国会/内部人情绪（Quiver） | 可选 |
-| `scrape-mcp` | `financial-scraper` | OpenInsider 内部人交易、Capitol Trades、CME FedWatch、Circle 储备透明度、The Block 新闻 | 无需 |
+| `scrape-mcp` | `financial-scraper` | OpenInsider 内部人交易、Capitol Trades、CME FedWatch、Circle 储备透明度、The Block 新闻、QuiverQuant 国会交易图表 | 无需 |
 | `grok-mcp` | `grok-news` | 通过 Grok AI 获取 X/Twitter 新闻与情绪分析 | XAI（可选） |
 | `social-mcp` | `social-data` | Reddit（公开）、Twitter/X（xreach）、YouTube（yt-dlp） | 可选 |
 
@@ -146,6 +146,8 @@ Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 
 | `get_fed_rate_probabilities` | CME FedWatch FOMC 利率概率（约 14s） |
 | `get_circle_reserves` | Circle USDC/EURC 流通量、储备构成、铸造/赎回流量（约 10s） |
 | `search_theblock(query, size, fetch_body, fetch_index)` | The Block 加密新闻搜索，可按序号获取正文（约 1-2s） |
+| `get_quiverquant_congress(ticker, use_cache, output)` | QuiverQuant：国会交易 vs 股价交互图（HTML，自动在浏览器打开）+ CSV；按日缓存（首次约 15s） |
+| `clear_quiverquant_cache(ticker)` | 清除指定股票或全部 QuiverQuant 缓存文件 |
 
 ### grok-news
 | 工具 | 功能 |

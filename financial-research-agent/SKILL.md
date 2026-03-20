@@ -20,7 +20,7 @@ Full-stack financial research via 7 MCP servers.
 | `macro-data` | FRED + SEC EDGAR | Fed rates, CPI, GDP, 13F filings |
 | `sentiment-data` | Alternative.me + Quiver | Fear/Greed, congressional trades, insider sentiment |
 | `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
-| `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch + Circle + The Block | Insider trades, political trades, rate probabilities, USDC reserves, crypto news |
+| `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch + Circle + The Block + QuiverQuant | Insider trades, political trades, rate probabilities, USDC reserves, crypto news, congress trading chart |
 | `social-data` | Reddit (public JSON) + Twitter/X (xreach) + YouTube (yt-dlp) | Raw social posts, WSB, KOL timelines, earnings transcripts |
 
 ## API Key Configuration
@@ -109,6 +109,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "What is Reddit / WSB saying about X?" → `social-data` → `search_reddit(query, subreddit="wallstreetbets")` (not sentiment-data)
 - "Is the crypto market fearful or greedy?" → `sentiment-data` → `get_fear_greed_index`
 - "What are politicians buying/selling?" → `sentiment-data` → `get_congressional_trades` OR `financial-scraper` → `get_congressional_trades`
+- "Show me a chart of congressional trades for X / did politicians trade before the price moved?" → `financial-scraper` → `get_quiverquant_congress(ticker)` — produces interactive HTML chart (opens in browser) + CSV with full history
 - "What is X trading for? What is Bitcoin doing?" → `crypto-data` → `get_crypto_price`, `get_global_market`
 - "What is DeFi TVL? What is Uniswap's TVL?" → `crypto-data` → `get_defi_tvl_overview`, `get_protocol_tvl`
 - "What are on-chain signals for BTC/ETH?" → `crypto-data` → `get_onchain_metric`, `get_exchange_flows`
@@ -192,6 +193,8 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `get_fed_rate_probabilities()` | CME FedWatch |
 | `get_circle_reserves()` | Circle: USDC/EURC circulation, reserves, mint/burn flows |
 | `search_theblock(query, size, fetch_body, fetch_index)` | The Block: crypto news search + full article body |
+| `get_quiverquant_congress(ticker, use_cache, output)` | QuiverQuant: congress trade chart (HTML, opens in browser) + CSV; cached by date |
+| `clear_quiverquant_cache(ticker)` | Clear cached QuiverQuant files for a ticker (or all) |
 
 ### social-data
 | Tool | Description |
@@ -249,10 +252,11 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 ### D: Insider / Smart Money Tracking
 ```
 1. financial-scraper: get_insider_trades(trade_type="P", days=7) — recent big buys
-2. financial-scraper: get_congressional_trades(days=14) — political trades
-3. sentiment-data: get_congressional_trades(days=30) — Quiver data
-4. sentiment-data: get_insider_sentiment("AAPL") — specific stock
-5. macro-data: get_13f_holdings("0001067983") — Berkshire latest
+2. financial-scraper: get_congressional_trades(days=14) — political trades (Capitol Trades)
+3. sentiment-data: get_congressional_trades(days=30) — political trades (Quiver API)
+4. financial-scraper: get_quiverquant_congress("AAPL") — congress trade chart vs price + full CSV
+5. sentiment-data: get_insider_sentiment("AAPL") — specific stock
+6. macro-data: get_13f_holdings("0001067983") — Berkshire latest
 ```
 
 ### E: Earnings Play
@@ -327,6 +331,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | Glassnode (free) | 24h resolution |
 | OpenInsider | Within 2 business days of SEC filing |
 | Capitol Trades | Within 45 days of transaction |
+| QuiverQuant Congress | Cached per-day locally; source updated within ~1 day of disclosure |
 | CME FedWatch | Real-time |
 
 ## Limitations

@@ -12,7 +12,7 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `macro-mcp` | `macro-data` | FRED economic data, SEC EDGAR filings | FRED (required) |
 | `crypto-mcp` | `crypto-data` | CoinGecko prices, DeFi TVL, Glassnode on-chain | optional |
 | `sentiment-mcp` | `sentiment-data` | Fear & Greed Index, congressional/insider sentiment (Quiver) | optional |
-| `scrape-mcp` | `financial-scraper` | OpenInsider trades, Capitol Trades, CME FedWatch, Circle reserves, The Block news | none |
+| `scrape-mcp` | `financial-scraper` | OpenInsider trades, Capitol Trades, CME FedWatch, Circle reserves, The Block news, QuiverQuant congress chart | none |
 | `grok-mcp` | `grok-news` | X/Twitter news and sentiment via Grok API | XAI (optional) |
 | `social-mcp` | `social-data` | Reddit (public), Twitter/X (xreach), YouTube (yt-dlp) | optional |
 
@@ -146,6 +146,8 @@ Restart Claude Desktop to load the MCPs.
 | `get_fed_rate_probabilities` | CME FedWatch FOMC rate probabilities (~14s) |
 | `get_circle_reserves` | Circle USDC/EURC circulation, reserves, mint/burn flows (~10s) |
 | `search_theblock(query, size, fetch_body, fetch_index)` | The Block crypto news search + full article body (~1-2s) |
+| `get_quiverquant_congress(ticker, use_cache, output)` | QuiverQuant: congress trade chart vs price (HTML, opens in browser) + CSV; cached daily (~15s first fetch) |
+| `clear_quiverquant_cache(ticker)` | Clear cached QuiverQuant files for one ticker or all |
 
 ### grok-news
 | Tool | Description |
