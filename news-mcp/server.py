@@ -26,7 +26,7 @@ from datetime import datetime, timezone, timedelta
 from mcp.server.fastmcp import FastMCP
 
 GDELT_DOC = "https://api.gdeltproject.org/api/v2/doc/doc"
-NEWSAPI_BASE = "https://newsapi.org/v2"
+NEWSAPI_BASE = "http://newsapi.org/v2"
 CONFIG_FILE = Path.home() / ".config" / "news-mcp" / "config.json"
 
 GDELT_APIS = {"search_news", "get_news_sentiment"}

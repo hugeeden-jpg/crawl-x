@@ -13,6 +13,7 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `crypto-mcp` | `crypto-data` | CoinGecko prices, DeFi TVL, Glassnode on-chain | optional |
 | `sentiment-mcp` | `sentiment-data` | Fear & Greed Index, congressional/insider sentiment (Quiver) | optional |
 | `scrape-mcp` | `financial-scraper` | OpenInsider trades, Capitol Trades, CME FedWatch, Circle reserves, The Block news, QuiverQuant congress chart | none |
+| `news-mcp` | `news-data` | Global news search + top headlines + sentiment timeline (GDELT + NewsAPI) | NewsAPI (optional) |
 | `grok-mcp` | `grok-news` | X/Twitter news and sentiment via Grok API | XAI (optional) |
 | `social-mcp` | `social-data` | Reddit (public), Twitter/X (xreach), YouTube (yt-dlp) | optional |
 
@@ -69,6 +70,7 @@ bash install.sh --desktop
 | `FRED_API_KEY` | macro-mcp | [fred.stlouisfed.org/docs/api](https://fred.stlouisfed.org/docs/api/api_key.html) |
 | `FINNHUB_API_KEY` | market-data-mcp | [finnhub.io](https://finnhub.io) |
 | `SIMFIN_API_KEY` | market-data-mcp | [simfin.com](https://simfin.com) — free tier (2000 req/day) |
+| `NEWSAPI_KEY` | news-mcp | [newsapi.org/register](https://newsapi.org/register) — free (100 req/day) |
 | `QUIVER_API_KEY` | sentiment-mcp | [quiverquant.com](https://www.quiverquant.com) |
 | `COINGECKO_API_KEY` | crypto-mcp | [coingecko.com/api](https://www.coingecko.com/en/api) |
 | `GLASSNODE_API_KEY` | crypto-mcp | [glassnode.com](https://glassnode.com) |
@@ -175,8 +177,12 @@ Restart Claude Desktop to load the MCPs.
 ### news-data
 | Tool | Description |
 |------|-------------|
-| `search_news` | Global news search via GDELT — 100+ languages, 65+ countries. No key required |
-| `get_news_sentiment` | Hourly tone timeline aggregated to daily averages (positive = optimistic) |
+| `configure(newsapi_key)` | Save NewsAPI.org key |
+| `search_newsapi(query, days, ...)` | NewsAPI article search — no per-request limit (100 req/day) |
+| `get_top_headlines(category, country, sources, query)` | Top headlines by category/country or specific sources (NewsAPI) |
+| `search_news(query, timespan, max_records)` | Global search via GDELT — 100+ languages, 65+ countries. No key required |
+| `get_news_sentiment(query, timespan)` | GDELT daily sentiment timeline (positive = optimistic) |
+| `batch_news(requests_json)` | Batch any mix of the above; auto rate-limits GDELT calls |
 
 ### social-data
 | Tool | Description | Requires |

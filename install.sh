@@ -171,6 +171,7 @@ _GN_EXIST="$(json_get   "$HOME/.config/crypto-mcp/config.json"         "glassnod
 _SIMFIN_EXIST="$(json_get "$HOME/.config/market-data-mcp/config.json"   "simfin_api_key")"
 _TW_AUTH_EXIST="$(json_get "$HOME/.config/social-mcp/config.json"      "auth_token")"
 _TW_CT0_EXIST="$(json_get  "$HOME/.config/social-mcp/config.json"      "ct0")"
+_NEWSAPI_EXIST="$(json_get "$HOME/.config/news-mcp/config.json"        "newsapi_key")"
 
 # ── FRED (required) ──────────────────────────────────────────────────────────
 echo "┌─ [required] FRED_API_KEY — macro-mcp (Fed rates, CPI, GDP, M2, treasury yields)"
@@ -248,6 +249,15 @@ echo "└─"
 prompt_key TWITTER_AUTH_TOKEN "  TWITTER_AUTH_TOKEN (social, optional)   " "$_TW_AUTH_EXIST"
 prompt_key TWITTER_CT0        "  TWITTER_CT0        (social, optional)   " "$_TW_CT0_EXIST"
 
+# ── NewsAPI.org (optional) ────────────────────────────────────────────────────
+echo ""
+echo "┌─ [optional] NEWSAPI_KEY — news-mcp (article search + top headlines)"
+echo "│  Free tier: 100 req/day, no per-request rate limit."
+echo "│  1. Visit: https://newsapi.org/register"
+echo "│  2. Register for free → copy the API key shown on the dashboard"
+echo "└─"
+prompt_key NEWSAPI_KEY "  NEWSAPI_KEY        (news-mcp, optional) " "$_NEWSAPI_EXIST"
+
 # ── write API keys to each MCP's config file ─────────────────────────────────
 
 echo ""
@@ -278,6 +288,7 @@ write_config "$HOME/.config/crypto-mcp/config.json"        "coingecko_api_key=$C
                                                             "glassnode_api_key=$GLASSNODE_API_KEY"
 write_config "$HOME/.config/social-mcp/config.json"        "auth_token=$TWITTER_AUTH_TOKEN" \
                                                             "ct0=$TWITTER_CT0"
+write_config "$HOME/.config/news-mcp/config.json"          "newsapi_key=$NEWSAPI_KEY"
 ok "Config files updated"
 
 else
@@ -306,6 +317,9 @@ else
   echo ""
   echo "  social-data   → mcp__social-data__configure_twitter(auth_token=\"...\", ct0=\"...\")"
   echo "    stores to:    ~/.config/social-mcp/config.json"
+  echo ""
+  echo "  news-data     → mcp__news-data__configure(newsapi_key=\"...\")"
+  echo "    stores to:    ~/.config/news-mcp/config.json"
   echo ""
 fi
 
