@@ -8,8 +8,9 @@
 
 | MCP | 服务器名称 | 功能描述 | API Key |
 |-----|-----------|---------|---------|
-| `market-data-mcp` | `market-data` | 股票报价、财务报表、新闻、财报日历 | Finnhub（可选） |
+| `market-data-mcp` | `market-data` | 股票报价、财务报表、新闻、财报日历、SimFin 标准化财务数据 | Finnhub / SimFin（可选） |
 | `macro-mcp` | `macro-data` | FRED 经济数据、SEC EDGAR 文件 | FRED（必须） |
+| `news-mcp` | `news-data` | GDELT 全球新闻搜索（100+ 语言）+ 情绪时间线 | 无需 |
 | `crypto-mcp` | `crypto-data` | CoinGecko 价格、DeFi TVL、Glassnode 链上数据 | 可选 |
 | `sentiment-mcp` | `sentiment-data` | 恐慌贪婪指数、国会/内部人情绪（Quiver） | 可选 |
 | `scrape-mcp` | `financial-scraper` | OpenInsider 内部人交易、Capitol Trades、CME FedWatch、Circle 储备透明度、The Block 新闻、QuiverQuant 国会交易图表 | 无需 |
@@ -43,7 +44,7 @@ bash install.sh
 - 安装 Scrapling + Playwright 浏览器（`scrape-mcp` 抓取 Capitol Trades 和 CME FedWatch 所需）
 - 自动安装 `yt-dlp`（`social-mcp` YouTube 工具所需）
 - 提示输入 API Key — **回车可保留已有值**
-- 通过 `claude mcp add` 注册全部 7 个 MCP 到 Claude CLI
+- 通过 `claude mcp add` 注册全部 8 个 MCP 到 Claude CLI
 
 同时生成 Claude Desktop 配置文件：
 
@@ -62,6 +63,7 @@ bash install.sh --desktop
 | `XAI_API_KEY` | grok-mcp | [console.x.ai](https://console.x.ai) — 可选；原始推文可通过 `social-data` 获取 |
 | `FRED_API_KEY` | macro-mcp | [fred.stlouisfed.org/docs/api](https://fred.stlouisfed.org/docs/api/api_key.html) |
 | `FINNHUB_API_KEY` | market-data-mcp | [finnhub.io](https://finnhub.io) |
+| `SIMFIN_API_KEY` | market-data-mcp | [simfin.com](https://simfin.com) — 免费（2000 次/天） |
 | `QUIVER_API_KEY` | sentiment-mcp | [quiverquant.com](https://www.quiverquant.com) |
 | `COINGECKO_API_KEY` | crypto-mcp | [coingecko.com/api](https://www.coingecko.com/en/api) |
 | `GLASSNODE_API_KEY` | crypto-mcp | [glassnode.com](https://glassnode.com) |
@@ -101,6 +103,7 @@ Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 
 | `get_company_news` | 指定股票最新新闻（Finnhub） |
 | `get_earnings_calendar` | 即将发布的财报日历（Finnhub） |
 | `get_news_sentiment` | 新闻情绪与热度评分（Finnhub） |
+| `get_simfin_financials` | 标准化财务报表：利润表 / 资产负债表 / 现金流 / 衍生指标（SimFin） |
 
 ### macro-data
 | 工具 | 功能 |
@@ -157,6 +160,12 @@ Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 
 | `get_financial_news` | 来自 X 及网络的金融新闻摘要 |
 | `get_kol_mentions` | 关键意见领袖近期发帖 |
 
+### news-data
+| 工具 | 功能 |
+|------|------|
+| `search_news` | GDELT 全球新闻搜索（100+ 语言、65+ 国家），无需 Key |
+| `get_news_sentiment` | 每小时情绪数据聚合为每日均值（正值=乐观，负值=悲观） |
+
 ### social-data
 | 工具 | 功能 | 依赖 |
 |------|------|------|
@@ -176,7 +185,7 @@ Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 
 
 ## 测试
 
-测试套件覆盖全部 7 个 MCP。
+测试套件覆盖全部 8 个 MCP。
 
 ```bash
 cd tests

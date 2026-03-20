@@ -43,7 +43,7 @@ The script will:
 - Install Scrapling + Playwright browsers (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
 - Auto-install `yt-dlp` if missing (required by `social-mcp` for YouTube)
 - Prompt for API keys — **press Enter to keep any already-configured value**
-- Register all 7 MCPs to Claude CLI via `claude mcp add`
+- Register all 8 MCPs to Claude CLI via `claude mcp add`
 
 To also generate a `claude_desktop_config.json` for Claude Desktop:
 
@@ -62,6 +62,7 @@ bash install.sh --desktop
 | `XAI_API_KEY` | grok-mcp | [console.x.ai](https://console.x.ai) — optional; raw tweets available via `social-data` |
 | `FRED_API_KEY` | macro-mcp | [fred.stlouisfed.org/docs/api](https://fred.stlouisfed.org/docs/api/api_key.html) |
 | `FINNHUB_API_KEY` | market-data-mcp | [finnhub.io](https://finnhub.io) |
+| `SIMFIN_API_KEY` | market-data-mcp | [simfin.com](https://simfin.com) — free tier (2000 req/day) |
 | `QUIVER_API_KEY` | sentiment-mcp | [quiverquant.com](https://www.quiverquant.com) |
 | `COINGECKO_API_KEY` | crypto-mcp | [coingecko.com/api](https://www.coingecko.com/en/api) |
 | `GLASSNODE_API_KEY` | crypto-mcp | [glassnode.com](https://glassnode.com) |
@@ -101,6 +102,7 @@ Restart Claude Desktop to load the MCPs.
 | `get_company_news` | News for a specific ticker (Finnhub) |
 | `get_earnings_calendar` | Upcoming earnings dates (Finnhub) |
 | `get_news_sentiment` | News sentiment and buzz score (Finnhub) |
+| `get_simfin_financials` | Standardized income / balance / cashflow / derived ratios (SimFin) |
 
 ### macro-data
 | Tool | Description |
@@ -157,6 +159,12 @@ Restart Claude Desktop to load the MCPs.
 | `get_financial_news` | Financial news from X and/or web |
 | `get_kol_mentions` | Key opinion leader mentions |
 
+### news-data
+| Tool | Description |
+|------|-------------|
+| `search_news` | Global news search via GDELT — 100+ languages, 65+ countries. No key required |
+| `get_news_sentiment` | Hourly tone timeline aggregated to daily averages (positive = optimistic) |
+
 ### social-data
 | Tool | Description | Requires |
 |------|-------------|---------|
@@ -176,7 +184,7 @@ Restart Claude Desktop to load the MCPs.
 
 ## Testing
 
-The test suite covers all 7 MCPs.
+The test suite covers all 8 MCPs.
 
 ```bash
 cd tests

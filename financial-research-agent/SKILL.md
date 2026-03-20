@@ -9,15 +9,16 @@ description: >
 
 # Financial Research Agent
 
-Full-stack financial research via 7 MCP servers.
+Full-stack financial research via 8 MCP servers.
 
 ## MCP Ecosystem Map
 
 | MCP Server | Data Sources | Use For |
 |------------|-------------|---------|
 | `grok-news` | X/Twitter via Grok AI | AI-synthesized X sentiment, trend analysis (requires XAI key, optional) |
-| `market-data` | yfinance + Finnhub | Stock quotes, history, financials, earnings |
+| `market-data` | yfinance + Finnhub + SimFin | Stock quotes, history, financials, earnings, standardized cross-company statements |
 | `macro-data` | FRED + SEC EDGAR | Fed rates, CPI, GDP, 13F filings |
+| `news-data` | GDELT DOC API v2 | Global news search (100+ languages, 65+ countries) + sentiment timeline. No key required |
 | `sentiment-data` | Alternative.me + Quiver | Fear/Greed, congressional trades, insider sentiment |
 | `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
 | `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch + Circle + The Block + QuiverQuant | Insider trades, political trades, rate probabilities, USDC reserves, crypto news, congress trading chart |
@@ -31,6 +32,7 @@ All API keys are stored in `~/.config/<mcp>/config.json`. Use the `configure()` 
 |-----|-----|-------------|----------|--------|
 | `macro-data` | `fred_api_key` | `~/.config/macro-mcp/config.json` | **Required** | https://fred.stlouisfed.org/docs/api/api_key.html |
 | `market-data` | `finnhub_api_key` | `~/.config/market-data-mcp/config.json` | Optional | https://finnhub.io/register |
+| `market-data` | `simfin_api_key` | `~/.config/market-data-mcp/config.json` | Optional | https://simfin.com (free tier: 2000 req/day) |
 | `grok-news` | `api_key` (XAI) | `~/.config/grok-mcp/config.json` | Optional | https://console.x.ai/ |
 | `sentiment-data` | `quiver_api_key` | `~/.config/sentiment-mcp/config.json` | Optional | https://www.quiverquant.com/quiverapi/ |
 | `crypto-data` | `coingecko_api_key` | `~/.config/crypto-mcp/config.json` | Optional | https://www.coingecko.com/en/api |
@@ -42,7 +44,7 @@ All API keys are stored in `~/.config/<mcp>/config.json`. Use the `configure()` 
 **Quick config via tool call:**
 ```
 macro-data:     configure(fred_api_key="...")
-market-data:    configure(finnhub_api_key="...")
+market-data:    configure(finnhub_api_key="...", simfin_api_key="...")
 grok-news:      configure(api_key="xai-...")
 sentiment-data: configure(quiver_api_key="...")
 crypto-data:    configure(coingecko_api_key="...", glassnode_api_key="...")
@@ -90,6 +92,10 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
         "TWITTER_AUTH_TOKEN": "...",
         "TWITTER_CT0": "..."
       }
+    },
+    "news-data": {
+      "command": "uv",
+      "args": ["run", "/Users/eden/crawl-x/news-mcp/server.py"]
     }
   }
 }
@@ -125,6 +131,10 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "What are the best DeFi yields / lending rates?" → `crypto-data` → `get_yields`
 - "All chains TVL ranking?" → `crypto-data` → `get_all_chains`
 - "Get the earnings call transcript for X" → `social-data` → `search_youtube(query)` → `get_video_transcript(url)`
+- "Search global news about X / what is the world saying about Y?" → `news-data` → `search_news(query)`
+- "What is the news sentiment trend for X over the past week?" → `news-data` → `get_news_sentiment(query)`
+- "Get standardized financials / compare income statements across companies?" → `market-data` → `get_simfin_financials(ticker, statement, period)`
+- "What are the derived ratios (P/E, ROIC, FCF, margins) for X?" → `market-data` → `get_simfin_financials(ticker, statement="derived")`
 
 ## Tools Quick Reference
 
@@ -148,6 +158,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `get_company_news(ticker, days)` | Company news |
 | `get_earnings_calendar(days_ahead)` | Upcoming earnings |
 | `get_news_sentiment(ticker)` | Finnhub buzz + sentiment |
+| `get_simfin_financials(ticker, statement, period)` | Standardized statements: income/balance/cashflow/derived (SimFin key) |
 
 ### macro-data
 | Tool | Description |
@@ -195,6 +206,12 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `search_theblock(query, size, fetch_body, fetch_index)` | The Block: crypto news search + full article body |
 | `get_quiverquant_congress(ticker, use_cache, output)` | QuiverQuant: congress trade chart (HTML, opens in browser) + CSV; cached by date |
 | `clear_quiverquant_cache(ticker)` | Clear cached QuiverQuant files for a ticker (or all) |
+
+### news-data
+| Tool | Description |
+|------|-------------|
+| `search_news(query, timespan, max_records)` | Global news search via GDELT (100+ languages, 65+ countries). No key required |
+| `get_news_sentiment(query, timespan)` | Hourly tone timeline aggregated to daily averages. Positive = bullish, negative = bearish |
 
 ### social-data
 | Tool | Description |
@@ -303,6 +320,8 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 |-----|--------|----------------|
 | market-data | yfinance | Unlimited (15-min delayed) |
 | market-data | Finnhub | 60 calls/minute |
+| market-data | SimFin | 2000 req/day (free tier) |
+| news-data | GDELT | 5s between requests |
 | macro-data | FRED | 120 calls/minute |
 | macro-data | SEC EDGAR | ~10 calls/second (be polite) |
 | sentiment-data | Alternative.me | No stated limit |
@@ -321,6 +340,8 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 |--------|-----------|
 | yfinance | 15-min delayed (US markets) |
 | Finnhub | Real-time (paid) / delayed (free) |
+| SimFin | Updated daily (free tier) |
+| GDELT | Real-time (~15min lag) |
 | FRED | Varies: daily/weekly/monthly/quarterly |
 | Reddit (social-data) | Real-time |
 | Twitter/X (social-data) | Real-time |
