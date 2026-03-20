@@ -6,8 +6,9 @@
 # ]
 # ///
 """
-News MCP Server - GDELT Global News Events
-Real-time global news search and sentiment timeline. No API key required.
+News MCP Server - GDELT Global News Events + NewsAPI.org
+Real-time global news search and sentiment timeline.
+GDELT: no API key required. NewsAPI: free key at newsapi.org.
 """
 
 import os
@@ -21,11 +22,205 @@ apply_ssl_fix()
 import json
 import time
 import requests
+from datetime import datetime, timezone, timedelta
 from mcp.server.fastmcp import FastMCP
 
 GDELT_DOC = "https://api.gdeltproject.org/api/v2/doc/doc"
+NEWSAPI_BASE = "https://newsapi.org/v2"
+CONFIG_FILE = Path.home() / ".config" / "news-mcp" / "config.json"
+
+GDELT_APIS = {"search_news", "get_news_sentiment"}
 
 mcp = FastMCP("news-data")
+
+
+def _load_newsapi_key() -> str:
+    key = os.environ.get("NEWSAPI_KEY", "")
+    if key:
+        return key
+    if CONFIG_FILE.exists():
+        cfg = json.loads(CONFIG_FILE.read_text())
+        return cfg.get("newsapi_key", "")
+    return ""
+
+
+@mcp.tool()
+def configure(newsapi_key: str) -> str:
+    """
+    Save NewsAPI.org API key to local config (~/.config/news-mcp/config.json).
+    Get a free key at https://newsapi.org/register (100 req/day, no per-request rate limit).
+
+    Args:
+        newsapi_key: Your NewsAPI.org API key
+    """
+    CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+    cfg = json.loads(CONFIG_FILE.read_text()) if CONFIG_FILE.exists() else {}
+    cfg["newsapi_key"] = newsapi_key
+    CONFIG_FILE.write_text(json.dumps(cfg, indent=2))
+    return "NewsAPI key saved to ~/.config/news-mcp/config.json"
+
+
+@mcp.tool()
+def search_newsapi(
+    query: str,
+    days: int = 7,
+    language: str = "en",
+    max_records: int = 20,
+    sort_by: str = "publishedAt",
+) -> str:
+    """
+    Search news articles via NewsAPI.org. No per-request rate limit (100 req/day free tier).
+    Requires a free API key configured via configure().
+
+    Args:
+        query: Search keywords — company name, ticker, event (e.g. "Apple earnings", "Federal Reserve")
+        days: How many past days to search, 1–30 (default: 7). Free tier max is 30 days.
+        language: Language code: en, zh, de, fr, es, ar, etc. (default: en)
+        max_records: Max articles to return, 1–100 (default: 20)
+        sort_by: Sort order: "publishedAt" (newest first), "relevancy", "popularity" (default: publishedAt)
+    """
+    key = _load_newsapi_key()
+    if not key:
+        return (
+            "NewsAPI key not configured. "
+            "Get a free key at https://newsapi.org/register, "
+            "then call configure(newsapi_key='...')."
+        )
+    try:
+        max_records = max(1, min(100, max_records))
+        days = max(1, min(30, days))
+        from_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
+
+        r = requests.get(
+            f"{NEWSAPI_BASE}/everything",
+            params={
+                "q": query,
+                "language": language,
+                "sortBy": sort_by,
+                "pageSize": max_records,
+                "from": from_date,
+                "apiKey": key,
+            },
+            timeout=25,
+        )
+        data = r.json()
+
+        if data.get("status") != "ok":
+            code = data.get("code", "")
+            msg = data.get("message", str(data))
+            if code == "apiKeyInvalid":
+                return f"Invalid API key. {msg}"
+            if code == "rateLimited":
+                return "NewsAPI daily limit (100 req) reached. Resets at midnight UTC."
+            return f"NewsAPI error [{code}]: {msg}"
+
+        articles = data.get("articles", [])
+        total = data.get("totalResults", 0)
+        if not articles:
+            return f"No articles found for '{query}' in the last {days} days."
+
+        lines = [
+            f"=== NewsAPI: '{query}' (last {days}d) — {len(articles)} of {total} results ===\n"
+        ]
+        for art in articles:
+            pub = art.get("publishedAt", "")[:16].replace("T", " ")
+            source = art.get("source", {}).get("name", "")
+            title = art.get("title", "(no title)")
+            desc = art.get("description") or ""
+            url = art.get("url", "")
+
+            lines.append(f"[{pub}] {source}")
+            lines.append(f"  {title}")
+            if desc:
+                lines.append(f"  {desc[:150]}")
+            lines.append(f"  {url}")
+            lines.append("")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_top_headlines(
+    category: str = "business",
+    country: str = "us",
+    query: str = "",
+    max_records: int = 20,
+    sources: str = "",
+) -> str:
+    """
+    Get top headlines via NewsAPI.org. No per-request rate limit (100 req/day free tier).
+    Requires a free API key configured via configure().
+
+    Args:
+        category: News category — business, entertainment, general, health, science, sports,
+                  technology (default: business). Ignored when sources is set.
+        country: Country code. Currently only "us" is supported by NewsAPI (default: us).
+                 Ignored when sources is set.
+        query: Optional keyword filter within headlines (e.g. "Fed rate", "NVIDIA")
+        max_records: Max articles to return, 1–100 (default: 20)
+        sources: Comma-separated NewsAPI source IDs (e.g. "bloomberg,reuters,financial-post").
+                 When set, country and category are ignored (NewsAPI restriction).
+                 Common IDs: bloomberg, reuters, the-wall-street-journal, financial-times,
+                 cnbc, business-insider, fortune, financial-post
+    """
+    key = _load_newsapi_key()
+    if not key:
+        return (
+            "NewsAPI key not configured. "
+            "Get a free key at https://newsapi.org/register, "
+            "then call configure(newsapi_key='...')."
+        )
+    try:
+        max_records = max(1, min(100, max_records))
+        params: dict = {"pageSize": max_records, "apiKey": key}
+
+        if sources:
+            params["sources"] = sources
+        else:
+            params["country"] = country
+            params["category"] = category
+        if query:
+            params["q"] = query
+
+        r = requests.get(f"{NEWSAPI_BASE}/top-headlines", params=params, timeout=25)
+        data = r.json()
+
+        if data.get("status") != "ok":
+            code = data.get("code", "")
+            msg = data.get("message", str(data))
+            if code == "apiKeyInvalid":
+                return f"Invalid API key. {msg}"
+            if code == "rateLimited":
+                return "NewsAPI daily limit (100 req) reached. Resets at midnight UTC."
+            return f"NewsAPI error [{code}]: {msg}"
+
+        articles = data.get("articles", [])
+        total = data.get("totalResults", 0)
+        if not articles:
+            label = sources or f"{country}/{category}"
+            return f"No headlines found for [{label}]{' query=' + repr(query) if query else ''}."
+
+        label = sources if sources else f"{country} / {category}"
+        lines = [f"=== Top Headlines: {label}{' · ' + query if query else ''} — {len(articles)} of {total} ===\n"]
+        for art in articles:
+            pub = art.get("publishedAt", "")[:16].replace("T", " ")
+            source = art.get("source", {}).get("name", "")
+            title = art.get("title", "(no title)")
+            desc = art.get("description") or ""
+            url = art.get("url", "")
+
+            lines.append(f"[{pub}] {source}")
+            lines.append(f"  {title}")
+            if desc:
+                lines.append(f"  {desc[:150]}")
+            lines.append(f"  {url}")
+            lines.append("")
+
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Error: {e}"
 
 
 def gdelt_get(params: dict) -> dict | str:
@@ -156,18 +351,27 @@ def get_news_sentiment(query: str, timespan: str = "7d") -> str:
 @mcp.tool()
 def batch_news(requests_json: str) -> str:
     """
-    Batch fetch news for multiple queries, with automatic 5-second rate limiting between requests.
+    Batch fetch news for multiple queries. Automatically inserts a 5-second delay between
+    consecutive GDELT calls (search_news / get_news_sentiment) to respect its IP-based rate
+    limit. NewsAPI calls (search_newsapi) have no per-request rate limit and are not delayed.
 
     Args:
-        requests_json: JSON array of request objects. Each object must have an "api" field
-            ("search_news" or "get_news_sentiment") plus the corresponding parameters:
-            - search_news: query (required), timespan (optional, default "7d"), max_records (optional, default 20)
-            - get_news_sentiment: query (required), timespan (optional, default "7d")
+        requests_json: JSON array of request objects. Each must have an "api" field plus params:
+            - "search_news":        query, timespan (default "7d"), max_records (default 20)
+            - "get_news_sentiment": query, timespan (default "7d")
+            - "search_newsapi":     query, days (default 7), language (default "en"),
+                                    max_records (default 20), sort_by (default "publishedAt")
+            - "get_top_headlines":  category (default "business"), country (default "us"),
+                                    query (default ""), max_records (default 20),
+                                    sources (default "")
 
             Example:
             [
-              {"api": "search_news", "query": "Apple Inc", "timespan": "3d", "max_records": 10},
-              {"api": "get_news_sentiment", "query": "Federal Reserve", "timespan": "7d"}
+              {"api": "get_top_headlines", "category": "business", "country": "us"},
+              {"api": "get_top_headlines", "sources": "bloomberg,reuters", "query": "Fed"},
+              {"api": "search_newsapi", "query": "NVIDIA earnings", "days": 3},
+              {"api": "search_news",    "query": "Apple Inc", "timespan": "3d"},
+              {"api": "get_news_sentiment", "query": "China trade war", "timespan": "14d"}
             ]
     """
     try:
@@ -179,11 +383,16 @@ def batch_news(requests_json: str) -> str:
         return "Error: requests_json must be a non-empty JSON array."
 
     results = []
+    prev_was_gdelt = False
+
     for i, item in enumerate(items):
-        if i > 0:
+        api = item.get("api")
+        is_gdelt = api in GDELT_APIS
+
+        # Only sleep when transitioning between or within GDELT calls
+        if i > 0 and (is_gdelt or prev_was_gdelt):
             time.sleep(5)
 
-        api = item.get("api")
         if api == "search_news":
             result = search_news(
                 query=item.get("query", ""),
@@ -195,10 +404,27 @@ def batch_news(requests_json: str) -> str:
                 query=item.get("query", ""),
                 timespan=item.get("timespan", "7d"),
             )
+        elif api == "search_newsapi":
+            result = search_newsapi(
+                query=item.get("query", ""),
+                days=int(item.get("days", 7)),
+                language=item.get("language", "en"),
+                max_records=int(item.get("max_records", 20)),
+                sort_by=item.get("sort_by", "publishedAt"),
+            )
+        elif api == "get_top_headlines":
+            result = get_top_headlines(
+                category=item.get("category", "business"),
+                country=item.get("country", "us"),
+                query=item.get("query", ""),
+                max_records=int(item.get("max_records", 20)),
+                sources=item.get("sources", ""),
+            )
         else:
-            result = f"Error: unknown api '{api}'. Use 'search_news' or 'get_news_sentiment'."
+            result = f"Error: unknown api '{api}'. Use 'search_news', 'get_news_sentiment', 'search_newsapi', or 'get_top_headlines'."
 
         results.append(f"--- [{i+1}/{len(items)}] {api}: {item.get('query', '')} ---\n{result}")
+        prev_was_gdelt = is_gdelt
 
     return "\n\n".join(results)
 

@@ -18,7 +18,7 @@ Full-stack financial research via 8 MCP servers.
 | `grok-news` | X/Twitter via Grok AI | AI-synthesized X sentiment, trend analysis (requires XAI key, optional) |
 | `market-data` | yfinance + Finnhub + SimFin | Stock quotes, history, financials, earnings, standardized cross-company statements |
 | `macro-data` | FRED + SEC EDGAR | Fed rates, CPI, GDP, 13F filings |
-| `news-data` | GDELT DOC API v2 | Global news search (100+ languages, 65+ countries) + sentiment timeline. No key required |
+| `news-data` | GDELT + NewsAPI.org | Global news search, top headlines, sentiment timeline. GDELT free; NewsAPI free key (100 req/day) |
 | `sentiment-data` | Alternative.me + Quiver | Fear/Greed, congressional trades, insider sentiment |
 | `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
 | `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch + Circle + The Block + QuiverQuant | Insider trades, political trades, rate probabilities, USDC reserves, crypto news, congress trading chart |
@@ -110,9 +110,11 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "What are the best DeFi yields / lending rates?" → `crypto-data` → `get_yields`
 - "All chains TVL ranking?" → `crypto-data` → `get_all_chains`
 - "Get the earnings call transcript for X" → `social-data` → `search_youtube(query)` → `get_video_transcript(url)`
-- "Search global news about X / what is the world saying about Y?" → `news-data` → `search_news(query)`
-- "What is the news sentiment trend for X over the past week?" → `news-data` → `get_news_sentiment(query)`
-- "Fetch news/sentiment for multiple topics at once" → `news-data` → `batch_news(requests_json)` (handles 5s rate limit automatically)
+- "Search global/multilingual news about X" → `news-data` → `search_news(query)` (GDELT, 100+ languages)
+- "Search English news about X with no rate limit" → `news-data` → `search_newsapi(query, days)` (NewsAPI)
+- "Top US business/tech/finance headlines" → `news-data` → `get_top_headlines(category, country)` or `get_top_headlines(sources="bloomberg,reuters")`
+- "What is the news sentiment trend for X?" → `news-data` → `get_news_sentiment(query)` (GDELT)
+- "Fetch news for multiple topics at once" → `news-data` → `batch_news(requests_json)` (auto rate-limits GDELT calls; no delay for NewsAPI)
 - "Get standardized financials / compare income statements across companies?" → `market-data` → `get_simfin_financials(ticker, statement, period)`
 - "What are the derived ratios (P/E, ROIC, FCF, margins) for X?" → `market-data` → `get_simfin_financials(ticker, statement="derived")`
 
@@ -195,11 +197,15 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `clear_quiverquant_cache(ticker)` | Clear cached QuiverQuant files for a ticker (or all) |
 
 ### news-data
+
 | Tool | Description |
 |------|-------------|
-| `search_news(query, timespan, max_records)` | Global news search via GDELT (100+ languages, 65+ countries). No key required |
-| `get_news_sentiment(query, timespan)` | Hourly tone timeline aggregated to daily averages. Positive = bullish, negative = bearish |
-| `batch_news(requests_json)` | Batch multiple search_news/get_news_sentiment calls; auto rate-limits 5s between each (IP-based: 1 req/5s) |
+| `configure(newsapi_key)` | Save NewsAPI.org key (~/.config/news-mcp/config.json) |
+| `search_newsapi(query, days, language, max_records, sort_by)` | NewsAPI article search — no per-request limit (100 req/day). days max 30 |
+| `get_top_headlines(category, country, query, max_records, sources)` | NewsAPI top headlines. country only supports "us"; sources cannot mix with country/category |
+| `search_news(query, timespan, max_records)` | GDELT global news (100+ languages, 65+ countries). No key — 1 req/5s limit |
+| `get_news_sentiment(query, timespan)` | GDELT daily sentiment timeline. Positive = bullish, negative = bearish |
+| `batch_news(requests_json)` | Batch search_news/get_news_sentiment/search_newsapi/get_top_headlines; auto 5s delay around GDELT calls only |
 
 ### social-data
 | Tool | Description |
@@ -309,7 +315,8 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | market-data | yfinance | Unlimited (15-min delayed) |
 | market-data | Finnhub | 60 calls/minute |
 | market-data | SimFin | 2000 req/day (free tier) |
-| news-data | GDELT | 5s between requests |
+| news-data | GDELT | 1 req/5s (IP-based); batch_news handles automatically |
+| news-data | NewsAPI.org | 100 req/day, no per-request limit |
 | macro-data | FRED | 120 calls/minute |
 | macro-data | SEC EDGAR | ~10 calls/second (be polite) |
 | sentiment-data | Alternative.me | No stated limit |
