@@ -38,7 +38,7 @@ Claude Desktop config:
 | `get_market_news(category)` | Yes | Latest market news (general/forex/crypto/merger) |
 | `get_company_news(ticker, days)` | Yes | Company-specific news |
 | `get_earnings_calendar(days_ahead)` | Yes | Upcoming earnings with estimates |
-| `get_economic_calendar(days_ahead, country)` | Yes (premium) | Upcoming macro events: CPI, NFP, GDP, FOMC, PMI |
+| `get_economic_calendar(days_ahead, currency)` | No | Upcoming macro events: CPI, NFP, GDP, FOMC, PMI (Investing.com) |
 | `get_ipo_calendar(days_ahead)` | Yes | Upcoming IPO listings with price range and exchange |
 | `get_dividend_calendar(ticker, timeframe, country)` | No | Per-stock: ex-div date, payment date, yield (yfinance). Market-wide (no ticker): all stocks going ex-div in timeframe via Investing.com |
 | `get_options_expiry(ticker)` | No | Options expiration dates with call/put OI and P/C ratio |

@@ -80,7 +80,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "Show me the price history / chart of X" → `market-data` → `get_stock_history`
 - "What do analysts say about X?" → `market-data` → `get_analyst_recommendations`, `get_news_sentiment`
 - "What are the latest earnings for X?" → `market-data` → `get_earnings_calendar`, `get_financials`
-- "What economic events are coming up? CPI / NFP / FOMC this week?" → `market-data` → `get_economic_calendar` (requires Finnhub premium)
+- "What economic events are coming up? CPI / NFP / FOMC this week?" → `market-data` → `get_economic_calendar` (no key required — Investing.com)
 - "What IPOs are coming up?" → `market-data` → `get_ipo_calendar`
 - "When does AAPL go ex-dividend? What is the yield?" → `market-data` → `get_dividend_calendar("AAPL")`
 - "What stocks go ex-dividend this week? Show me dividend calendar." → `market-data` → `get_dividend_calendar(timeframe="thisWeek", country="US")`
@@ -133,7 +133,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `get_market_news(category)` | Market news |
 | `get_company_news(ticker, days)` | Company news |
 | `get_earnings_calendar(days_ahead)` | Upcoming earnings |
-| `get_economic_calendar(days_ahead, country)` | Macro events: CPI, NFP, GDP, FOMC, PMI (Finnhub premium) |
+| `get_economic_calendar(days_ahead, currency)` | Macro events: CPI, NFP, GDP, FOMC, PMI (Investing.com, no key) |
 | `get_ipo_calendar(days_ahead)` | Upcoming IPO listings with price and exchange |
 | `get_dividend_calendar(ticker, timeframe, country)` | Per-stock: ex-div date, pay date, yield (yfinance). Market-wide (no ticker): all stocks going ex-div scraped from Investing.com |
 | `get_options_expiry(ticker)` | Options expiry dates + OI + P/C ratio (yfinance) |
