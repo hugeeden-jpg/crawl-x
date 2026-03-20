@@ -45,6 +45,12 @@ The script will:
 - Prompt for API keys — **press Enter to keep any already-configured value**
 - Register all 8 MCPs to Claude CLI via `claude mcp add`
 
+**Agent / CI usage** — skip the interactive key prompts and configure keys afterwards via each MCP's `configure` tool:
+
+```bash
+bash install.sh --non-interactive
+```
+
 To also generate a `claude_desktop_config.json` for Claude Desktop:
 
 ```bash
@@ -69,9 +75,9 @@ bash install.sh --desktop
 | `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie (Cookie Picker extension → `auth_token`) |
 | `TWITTER_CT0` | social-mcp | x.com cookie (Cookie Picker extension → `ct0`) |
 
-Keys can be passed during `install.sh` or configured later via each MCP's `configure()` tool.
+Keys are stored in `~/.config/<mcp-name>/config.json` — **not** in `.env` files or Claude MCP env vars. Configure them interactively during `install.sh`, or call each MCP's `configure` tool afterwards (e.g. `mcp__macro-data__configure(fred_api_key="...")`).
 
-> **Twitter cookie setup:** Use the **Cookie Picker** Chrome extension included in this repo (`extensions/cookie-picker/`) — load it unpacked in Chrome, navigate to x.com, open the popup, and `auth_token` + `ct0` are pre-selected. Click "Copy selected" and paste the values into `configure_twitter(auth_token=..., ct0=...)` in Claude, or pass them as env vars to `install.sh`.
+> **Twitter cookie setup:** Use the **Cookie Picker** Chrome extension included in this repo (`extensions/cookie-picker/`) — load it unpacked in Chrome, navigate to x.com, open the popup, and `auth_token` + `ct0` are pre-selected. Click "Copy selected" and paste the values into `configure_twitter(auth_token=..., ct0=...)` in Claude.
 
 ---
 

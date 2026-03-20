@@ -46,6 +46,12 @@ bash install.sh
 - 提示输入 API Key — **回车可保留已有值**
 - 通过 `claude mcp add` 注册全部 8 个 MCP 到 Claude CLI
 
+**Agent / CI 模式** — 跳过交互式 key 提示，安装后通过各 MCP 的 `configure` 工具单独配置：
+
+```bash
+bash install.sh --non-interactive
+```
+
 同时生成 Claude Desktop 配置文件：
 
 ```bash
@@ -70,7 +76,7 @@ bash install.sh --desktop
 | `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie（Cookie Picker 扩展 → `auth_token`） |
 | `TWITTER_CT0` | social-mcp | x.com cookie（Cookie Picker 扩展 → `ct0`） |
 
-Key 可在运行 `install.sh` 时输入，也可通过各 MCP 的 `configure()` 工具在之后配置。
+Key 存储在 `~/.config/<mcp-name>/config.json` 中——**不是** `.env` 文件或 Claude MCP 的环境变量。可在 `install.sh` 交互流程中配置，也可安装后调用各 MCP 的 `configure` 工具（如 `mcp__macro-data__configure(fred_api_key="...")`）。
 
 > **Twitter Cookie 配置：** 使用本项目内置的 **Cookie Picker** Chrome 扩展（`extensions/cookie-picker/`）——在 Chrome 中以"加载已解压的扩展程序"方式安装，打开 x.com，点击插件图标，`auth_token` 和 `ct0` 已默认勾选，点击"Copy selected"复制后粘贴到 `configure_twitter(auth_token=..., ct0=...)` 即可。
 

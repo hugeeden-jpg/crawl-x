@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
 # install.sh — Register all crawl-x MCPs to Claude CLI
-# Usage: bash install.sh [--desktop]
-#   --desktop  Also generate claude_desktop_config.json
+# Usage: bash install.sh [--desktop] [--non-interactive]
+#   --desktop          Also generate claude_desktop_config.json
+#   --non-interactive  Skip API key prompts (for agent/CI use).
+#                      Configure keys afterwards via each MCP's configure tool.
 
 set -e
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_MODE=false
+IS_INTERACTIVE=true
 
 for arg in "$@"; do
-  [[ "$arg" == "--desktop" ]] && DESKTOP_MODE=true
+  [[ "$arg" == "--desktop" ]]         && DESKTOP_MODE=true
+  [[ "$arg" == "--non-interactive" ]] && IS_INTERACTIVE=false
 done
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -135,7 +139,9 @@ else
   warn "  Install: npm install -g xreach-cli"
 fi
 
-# ── API keys (reads existing config, press Enter to keep) ────────────────────
+# ── API keys ──────────────────────────────────────────────────────────────────
+
+if $IS_INTERACTIVE; then
 
 # Prompt for a required key; loops until a non-empty value is provided
 prompt_required_key() {
@@ -273,6 +279,35 @@ write_config "$HOME/.config/crypto-mcp/config.json"        "coingecko_api_key=$C
 write_config "$HOME/.config/social-mcp/config.json"        "auth_token=$TWITTER_AUTH_TOKEN" \
                                                             "ct0=$TWITTER_CT0"
 ok "Config files updated"
+
+else
+  info "Non-interactive mode: skipping API key prompts."
+  echo ""
+  echo "  API keys are stored in JSON config files under ~/.config/, NOT in"
+  echo "  .env files or Claude MCP environment variables. Do NOT use"
+  echo "  'claude mcp add -e KEY=...' — keys written there will be ignored."
+  echo ""
+  echo "  To configure keys, call each MCP's configure tool after installation:"
+  echo ""
+  echo "  macro-data    → mcp__macro-data__configure(fred_api_key=\"...\")"
+  echo "    stores to:    ~/.config/macro-mcp/config.json"
+  echo ""
+  echo "  market-data   → mcp__market-data__configure(finnhub_api_key=\"...\", simfin_api_key=\"...\")"
+  echo "    stores to:    ~/.config/market-data-mcp/config.json"
+  echo ""
+  echo "  grok-news     → mcp__grok-news__set_api_key(api_key=\"...\")"
+  echo "    stores to:    ~/.config/grok-mcp/config.json"
+  echo ""
+  echo "  sentiment-data → mcp__sentiment-data__configure(quiver_api_key=\"...\")"
+  echo "    stores to:    ~/.config/sentiment-mcp/config.json"
+  echo ""
+  echo "  crypto-data   → mcp__crypto-data__configure(coingecko_api_key=\"...\", glassnode_api_key=\"...\")"
+  echo "    stores to:    ~/.config/crypto-mcp/config.json"
+  echo ""
+  echo "  social-data   → mcp__social-data__configure_twitter(auth_token=\"...\", ct0=\"...\")"
+  echo "    stores to:    ~/.config/social-mcp/config.json"
+  echo ""
+fi
 
 # ── register MCPs ─────────────────────────────────────────────────────────────
 
