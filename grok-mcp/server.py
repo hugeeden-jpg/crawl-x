@@ -10,8 +10,13 @@ Grok MCP Server - 使用 Grok API 获取 X/Twitter 资讯和市场情绪
 """
 
 import os
+import sys
 import json
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from ssl_utils import apply_ssl_fix  # noqa: E402
+apply_ssl_fix()
 
 from mcp.server.fastmcp import FastMCP
 from openai import OpenAI

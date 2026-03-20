@@ -17,9 +17,10 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-_brew_ca = Path("/opt/homebrew/etc/openssl@3/cert.pem")
-if _brew_ca.exists():
-    os.environ.setdefault("REQUESTS_CA_BUNDLE", str(_brew_ca))
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from ssl_utils import apply_ssl_fix, CA_BUNDLE  # noqa: E402
+apply_ssl_fix()
 
 import requests
 from mcp.server.fastmcp import FastMCP
@@ -360,11 +361,11 @@ def _ytdlp_check() -> str | None:
 
 
 def _ytdlp_env() -> dict:
-    """Subprocess env for yt-dlp: applies macOS Homebrew SSL CA bundle fix."""
+    """Subprocess env for yt-dlp: inherits SSL CA bundle from ssl_utils detection."""
     env = os.environ.copy()
-    if _brew_ca.exists():
-        env.setdefault("SSL_CERT_FILE", str(_brew_ca))
-        env.setdefault("REQUESTS_CA_BUNDLE", str(_brew_ca))
+    if CA_BUNDLE:
+        env.setdefault("SSL_CERT_FILE", CA_BUNDLE)
+        env.setdefault("REQUESTS_CA_BUNDLE", CA_BUNDLE)
     return env
 
 

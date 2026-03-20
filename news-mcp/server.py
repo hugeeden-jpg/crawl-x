@@ -13,10 +13,10 @@ Real-time global news search and sentiment timeline. No API key required.
 import os
 from pathlib import Path
 
-# On macOS with Homebrew openssl, point requests to the correct cert bundle.
-_brew_ca = Path("/opt/homebrew/etc/openssl@3/cert.pem")
-if _brew_ca.exists():
-    os.environ.setdefault("REQUESTS_CA_BUNDLE", str(_brew_ca))
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from ssl_utils import apply_ssl_fix  # noqa: E402
+apply_ssl_fix()
 
 import requests
 from mcp.server.fastmcp import FastMCP

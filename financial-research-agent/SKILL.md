@@ -350,6 +350,19 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - EDGAR 13F parsing requires knowing the CIK number
 - yfinance data accuracy not guaranteed; verify critical data with official sources
 
+## Troubleshooting
+
+### macOS SSL Certificate Errors
+If tools fail with SSL/certificate errors (Finnhub, CoinGecko, The Block, Grok, etc.):
+- **Do NOT suggest `pip install certifi`** — certifi is already installed as a dependency of requests. This will do nothing.
+- **Root cause**: `curl_cffi` (used by yfinance/Scrapling) looks for a CA bundle at a path that may not exist on the user's machine. The fix is to set the `CURL_CA_BUNDLE` env var pointing to a valid cert file.
+- **Fix**: Pull the latest code and restart Claude Desktop / CLI:
+  ```bash
+  cd ~/crawl-x && git pull
+  ```
+  The repo includes `ssl_utils.py` which auto-detects the correct CA bundle (Homebrew Apple Silicon → Homebrew Intel → certifi fallback). Restarting reloads the updated MCP servers.
+- If the issue persists after pulling, the user can manually verify the cert path: `python3 -c "import certifi; print(certifi.where())"`
+
 ## Guardrails
 
 - All data is for research purposes only — not a basis for investment decisions

@@ -16,12 +16,11 @@ import os
 import json
 from pathlib import Path
 
-# curl_cffi (used by yfinance) bundles its own CA store and ignores the system one.
-# On macOS with Homebrew openssl, point it to the correct cert bundle.
-_brew_ca = Path("/opt/homebrew/etc/openssl@3/cert.pem")
-if _brew_ca.exists():
-    os.environ.setdefault("CURL_CA_BUNDLE", str(_brew_ca))
-    os.environ.setdefault("REQUESTS_CA_BUNDLE", str(_brew_ca))
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from ssl_utils import apply_ssl_fix  # noqa: E402
+apply_ssl_fix()
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
