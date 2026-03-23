@@ -16,6 +16,7 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `news-mcp` | `news-data` | Global news search + top headlines + sentiment timeline (GDELT + NewsAPI) | NewsAPI (optional) |
 | `grok-mcp` | `grok-news` | X/Twitter news and sentiment via Grok API | XAI (optional) |
 | `social-mcp` | `social-data` | Reddit (public), Twitter/X (xreach), YouTube (yt-dlp) | optional |
+| `blockbeats-mcp` | `blockbeats-mcp` | Crypto newsflash/articles, BTC ETF flows, on-chain data, derivatives OI, macro (M2/DXY/treasury), sentiment indicator | BlockBeats Pro (optional) |
 
 ---
 
@@ -44,7 +45,7 @@ The script will:
 - Install Scrapling + Playwright browsers (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
 - Auto-install `yt-dlp` if missing (required by `social-mcp` for YouTube)
 - Prompt for API keys — **press Enter to keep any already-configured value**
-- Register all 8 MCPs to Claude CLI via `claude mcp add`
+- Register all 9 MCPs to Claude CLI via `claude mcp add`
 
 **Agent / CI usage** — skip the interactive key prompts and configure keys afterwards via each MCP's `configure` tool:
 
@@ -76,6 +77,7 @@ bash install.sh --desktop
 | `GLASSNODE_API_KEY` | crypto-mcp | [glassnode.com](https://glassnode.com) |
 | `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie (Cookie Picker extension → `auth_token`) |
 | `TWITTER_CT0` | social-mcp | x.com cookie (Cookie Picker extension → `ct0`) |
+| `BLOCKBEATS_API_KEY` | blockbeats-mcp | [theblockbeats.info](https://www.theblockbeats.info/) — BlockBeats Pro subscription |
 
 Keys are stored in `~/.config/<mcp-name>/config.json` — **not** in `.env` files or Claude MCP env vars. Configure them interactively during `install.sh`, or call each MCP's `configure` tool afterwards (e.g. `mcp__macro-data__configure(fred_api_key="...")`).
 
@@ -184,6 +186,28 @@ Restart Claude Desktop to load the MCPs.
 | `get_news_sentiment(query, timespan)` | GDELT daily sentiment timeline (positive = optimistic) |
 | `batch_news(requests_json)` | Batch any mix of the above; auto rate-limits GDELT calls |
 
+### blockbeats-mcp
+| Tool | Description |
+|------|-------------|
+| `configure(api_key)` | Save BlockBeats Pro API key |
+| `get_newsflash(category, page, size, lang)` | Paginated newsflash: `""` all, `important`, `original`, `first`, `onchain`, `financing`, `prediction`, `ai` |
+| `get_newsflash_24h(lang)` | All newsflashes from last 24h |
+| `get_articles(category, page, size, lang)` | Paginated articles: `""` all, `important`, `original` |
+| `get_articles_24h(lang)` | All articles from last 24h |
+| `search_news(keyword, page, size, lang)` | Keyword search across all content |
+| `get_btc_etf_flow(limit)` | BTC spot ETF daily/cumulative net inflow |
+| `get_daily_onchain_tx()` | Daily on-chain tx by chain (compact summary; full data → `/tmp/blockbeats_daily_tx.json`) |
+| `get_ibit_fbtc_flow(limit)` | IBIT and FBTC ETF net inflow |
+| `get_stablecoin_marketcap(limit)` | Stablecoin market cap history (billions USD) |
+| `get_compliant_exchange_total(limit)` | Compliant exchange total asset holdings |
+| `get_us_treasury_yield(type, limit)` | US 10Y Treasury yield (`1D`/`1W`/`1M`) |
+| `get_dxy_index(type, limit)` | Dollar Index (DXY) (`1D`/`1W`/`1M`) |
+| `get_m2_supply(type, limit)` | Global M2 money supply with YoY growth |
+| `get_bitfinex_long_positions(symbol, type, limit)` | Bitfinex BTC/ETH long positions |
+| `get_contract_oi_data(dataType, limit)` | Derivatives OI: Binance / Bybit / Hyperliquid |
+| `get_sentiment_indicator()` | Market buy/sell/hold sentiment indicator (0–100 score) |
+| `get_top10_netflow(network)` | Top 10 tokens by on-chain net inflow (`solana`/`base`/`ethereum`) |
+
 ### social-data
 | Tool | Description | Requires |
 |------|-------------|---------|
@@ -203,7 +227,7 @@ Restart Claude Desktop to load the MCPs.
 
 ## Testing
 
-The test suite covers all 8 MCPs.
+The test suite covers all 8 MCPs (blockbeats-mcp excluded — requires paid Pro key).
 
 ```bash
 cd tests
@@ -242,6 +266,8 @@ crawl-x/
 ├── scrape-mcp/server.py
 ├── grok-mcp/server.py
 ├── social-mcp/server.py
+├── news-mcp/server.py
+├── blockbeats-mcp/server.py
 ├── financial-research-agent/     # Master agent skill
 │   └── SKILL.md
 └── tests/                        # Regression test suite

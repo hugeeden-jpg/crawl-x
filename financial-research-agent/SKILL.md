@@ -9,7 +9,7 @@ description: >
 
 # Financial Research Agent
 
-Full-stack financial research via 8 MCP servers.
+Full-stack financial research via 9 MCP servers.
 
 ## MCP Ecosystem Map
 
@@ -23,6 +23,7 @@ Full-stack financial research via 8 MCP servers.
 | `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
 | `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch + Circle + The Block + QuiverQuant | Insider trades, political trades, rate probabilities, USDC reserves, crypto news, congress trading chart |
 | `social-data` | Reddit (public JSON) + Twitter/X (xreach) + YouTube (yt-dlp) | Raw social posts, WSB, KOL timelines, earnings transcripts |
+| `blockbeats-mcp` | BlockBeats Pro API | Crypto newsflash/articles, keyword search, BTC ETF flows, on-chain tx, stablecoin market cap, derivatives OI, macro (M2/DXY/treasury), sentiment indicator |
 
 ## API Key Configuration
 
@@ -38,6 +39,8 @@ All API keys are stored in `~/.config/<mcp>/config.json`. Use the `configure()` 
 | `crypto-data` | `coingecko_api_key` | `~/.config/crypto-mcp/config.json` | Optional | https://www.coingecko.com/en/api |
 | `crypto-data` | `glassnode_api_key` | `~/.config/crypto-mcp/config.json` | Optional | https://glassnode.com |
 | `social-data` | `auth_token` + `ct0` | `~/.config/social-mcp/config.json` | Optional | x.com cookies — use **Cookie Picker** extension (`extensions/cookie-picker/`), load unpacked in Chrome, open on x.com, `auth_token` + `ct0` are pre-selected; also install xreach: `npm install -g xreach-cli` |
+| `news-data` | `newsapi_key` | `~/.config/news-mcp/config.json` | Optional | https://newsapi.org/register — free (100 req/day) |
+| `blockbeats-mcp` | `api_key` | `~/.config/blockbeats-mcp/config.json` | Optional | https://www.theblockbeats.info/ — BlockBeats Pro subscription |
 
 **Without any keys:** `macro-data` (FRED) is the only hard requirement. `crypto-data`, `financial-scraper`, and `social-data` (Reddit/YouTube) all work without keys.
 
@@ -49,6 +52,8 @@ grok-news:      configure(api_key="xai-...")
 sentiment-data: configure(quiver_api_key="...")
 crypto-data:    configure(coingecko_api_key="...", glassnode_api_key="...")
 social-data:    configure_twitter(auth_token="...", ct0="...")
+news-data:      configure(newsapi_key="...")
+blockbeats-mcp: configure(api_key="...")
 ```
 
 ## Claude Desktop Config
@@ -63,7 +68,8 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
     "crypto-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/crypto-mcp/server.py"]},
     "financial-scraper": {"command": "uv", "args": ["run", "/path/to/crawl-x/scrape-mcp/server.py"]},
     "social-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/social-mcp/server.py"]},
-    "news-data":         {"command": "uv", "args": ["run", "/path/to/crawl-x/news-mcp/server.py"]}
+    "news-data":         {"command": "uv", "args": ["run", "/path/to/crawl-x/news-mcp/server.py"]},
+    "blockbeats-mcp":    {"command": "uv", "args": ["run", "/path/to/crawl-x/blockbeats-mcp/server.py"]}
   }
 }
 ```
@@ -116,6 +122,16 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 - "What is the news sentiment trend for X?" → `news-data` → `get_news_sentiment(query)` (GDELT)
 - "Fetch news for multiple topics at once" → `news-data` → `batch_news(requests_json)` (auto rate-limits GDELT calls; no delay for NewsAPI)
 - "Get standardized financials / compare income statements across companies?" → `market-data` → `get_simfin_financials(ticker, statement, period)`
+- "Crypto market overview / daily market summary / how's the market today?" → `blockbeats-mcp` → `get_sentiment_indicator`, `get_newsflash(category="important")`, `get_btc_etf_flow`
+- "BTC ETF inflow / IBIT FBTC flows?" → `blockbeats-mcp` → `get_btc_etf_flow`, `get_ibit_fbtc_flow`
+- "On-chain transaction volume / daily tx by chain?" → `blockbeats-mcp` → `get_daily_onchain_tx`
+- "Stablecoin market cap / USDT USDC supply trend?" → `blockbeats-mcp` → `get_stablecoin_marketcap`
+- "M2 money supply / DXY dollar index / US 10Y treasury?" → `blockbeats-mcp` → `get_m2_supply`, `get_dxy_index`, `get_us_treasury_yield`
+- "Derivatives OI / Binance Bybit open interest / Hyperliquid OI?" → `blockbeats-mcp` → `get_contract_oi_data`
+- "Bitfinex longs / leveraged long positions?" → `blockbeats-mcp` → `get_bitfinex_long_positions`
+- "Top on-chain net inflow tokens / Solana trending tokens?" → `blockbeats-mcp` → `get_top10_netflow`
+- "BlockBeats crypto newsflash / latest crypto news (Chinese source)?" → `blockbeats-mcp` → `get_newsflash`, `get_newsflash_24h`
+- "Search BlockBeats news by keyword?" → `blockbeats-mcp` → `search_news(keyword)`
 - "What are the derived ratios (P/E, ROIC, FCF, margins) for X?" → `market-data` → `get_simfin_financials(ticker, statement="derived")`
 
 ## Tools Quick Reference
@@ -221,6 +237,27 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | `get_video_info(url)` | YouTube video metadata |
 | `get_video_transcript(url, lang)` | YouTube captions/transcript |
 | `search_youtube(query, n)` | YouTube video search |
+
+### blockbeats-mcp
+| Tool | Description |
+|------|-------------|
+| `get_newsflash(category, page, size, lang)` | Paginated newsflash list: `""` all, `important`, `original`, `first`, `onchain`, `financing`, `prediction`, `ai` |
+| `get_newsflash_24h(lang)` | All newsflashes from last 24h |
+| `get_articles(category, page, size, lang)` | Paginated article list: `""` all, `important`, `original` |
+| `get_articles_24h(lang)` | All articles from last 24h |
+| `search_news(keyword, page, size, lang)` | Keyword search across all BlockBeats content |
+| `get_btc_etf_flow(limit)` | BTC spot ETF daily/cumulative net inflow |
+| `get_daily_onchain_tx()` | Daily on-chain tx by chain (writes full data to `/tmp/blockbeats_daily_tx.json`) |
+| `get_ibit_fbtc_flow(limit)` | IBIT and FBTC ETF net inflow side-by-side |
+| `get_stablecoin_marketcap(limit)` | Stablecoin market cap history (billions USD) |
+| `get_compliant_exchange_total(limit)` | Compliant exchange total asset holdings |
+| `get_us_treasury_yield(type, limit)` | US 10Y treasury yield: `1D`/`1W`/`1M` |
+| `get_dxy_index(type, limit)` | Dollar Index (DXY): `1D`/`1W`/`1M` |
+| `get_m2_supply(type, limit)` | Global M2 money supply with YoY growth: `3M`/`6M`/`1Y`/`3Y` |
+| `get_bitfinex_long_positions(symbol, type, limit)` | Bitfinex BTC/ETH long positions |
+| `get_contract_oi_data(dataType, limit)` | Derivatives OI: Binance / Bybit / Hyperliquid |
+| `get_sentiment_indicator()` | Market buy/sell/hold sentiment (11 sub-indicators, score 0–100) |
+| `get_top10_netflow(network)` | Top 10 tokens by on-chain net inflow: `solana`/`base`/`ethereum` |
 
 ## Workflow Patterns
 
@@ -328,6 +365,7 @@ social-data:    configure_twitter(auth_token="...", ct0="...")
 | social-data | Reddit JSON API | ~60 requests/min (no key, User-Agent required) |
 | social-data | Twitter xreach | Per your account limits |
 | social-data | YouTube yt-dlp | Generous (public videos) |
+| blockbeats-mcp | BlockBeats Pro API | Per your subscription plan |
 
 ## Data Freshness
 

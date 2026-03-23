@@ -172,6 +172,7 @@ _SIMFIN_EXIST="$(json_get "$HOME/.config/market-data-mcp/config.json"   "simfin_
 _TW_AUTH_EXIST="$(json_get "$HOME/.config/social-mcp/config.json"      "auth_token")"
 _TW_CT0_EXIST="$(json_get  "$HOME/.config/social-mcp/config.json"      "ct0")"
 _NEWSAPI_EXIST="$(json_get "$HOME/.config/news-mcp/config.json"        "newsapi_key")"
+_BB_EXIST="$(json_get      "$HOME/.config/blockbeats-mcp/config.json"  "api_key")"
 
 # ── FRED (required) ──────────────────────────────────────────────────────────
 echo "┌─ [required] FRED_API_KEY — macro-mcp (Fed rates, CPI, GDP, M2, treasury yields)"
@@ -258,6 +259,15 @@ echo "│  2. Register for free → copy the API key shown on the dashboard"
 echo "└─"
 prompt_key NEWSAPI_KEY "  NEWSAPI_KEY        (news-mcp, optional) " "$_NEWSAPI_EXIST"
 
+# ── BlockBeats (optional) ─────────────────────────────────────────────────────
+echo ""
+echo "┌─ [optional] BLOCKBEATS_API_KEY — blockbeats-mcp (crypto news, on-chain, ETF data)"
+echo "│  Requires a BlockBeats Pro subscription."
+echo "│  1. Visit: https://www.theblockbeats.info/"
+echo "│  2. Subscribe → Account → API Key"
+echo "└─"
+prompt_key BLOCKBEATS_API_KEY "  BLOCKBEATS_API_KEY (blockbeats, optional)" "$_BB_EXIST"
+
 # ── write API keys to each MCP's config file ─────────────────────────────────
 
 echo ""
@@ -289,6 +299,7 @@ write_config "$HOME/.config/crypto-mcp/config.json"        "coingecko_api_key=$C
 write_config "$HOME/.config/social-mcp/config.json"        "auth_token=$TWITTER_AUTH_TOKEN" \
                                                             "ct0=$TWITTER_CT0"
 write_config "$HOME/.config/news-mcp/config.json"          "newsapi_key=$NEWSAPI_KEY"
+write_config "$HOME/.config/blockbeats-mcp/config.json"    "api_key=$BLOCKBEATS_API_KEY"
 ok "Config files updated"
 
 else
@@ -321,6 +332,9 @@ else
   echo "  news-data     → mcp__news-data__configure(newsapi_key=\"...\")"
   echo "    stores to:    ~/.config/news-mcp/config.json"
   echo ""
+  echo "  blockbeats-mcp → mcp__blockbeats-mcp__configure(api_key=\"...\")"
+  echo "    stores to:    ~/.config/blockbeats-mcp/config.json"
+  echo ""
 fi
 
 # ── register MCPs ─────────────────────────────────────────────────────────────
@@ -343,6 +357,7 @@ register "sentiment-data"    "sentiment-mcp/server.py"
 register "financial-scraper" "scrape-mcp/server.py"
 register "social-data"       "social-mcp/server.py"
 register "news-data"         "news-mcp/server.py"
+register "blockbeats-mcp"    "blockbeats-mcp/server.py"
 
 # ── optionally generate Claude Desktop config ─────────────────────────────────
 
@@ -362,7 +377,8 @@ if $DESKTOP_MODE; then
     "sentiment-data":    {"command": "uv", "args": ["run", "$REPO_DIR/sentiment-mcp/server.py"]},
     "financial-scraper": {"command": "uv", "args": ["run", "$REPO_DIR/scrape-mcp/server.py"]},
     "social-data":       {"command": "uv", "args": ["run", "$REPO_DIR/social-mcp/server.py"]},
-    "news-data":         {"command": "uv", "args": ["run", "$REPO_DIR/news-mcp/server.py"]}
+    "news-data":         {"command": "uv", "args": ["run", "$REPO_DIR/news-mcp/server.py"]},
+    "blockbeats-mcp":    {"command": "uv", "args": ["run", "$REPO_DIR/blockbeats-mcp/server.py"]}
   }
 }
 JSON
@@ -396,6 +412,7 @@ install_skill "crypto-mcp"               "crypto-mcp/SKILL.md"
 install_skill "scrape-mcp"               "scrape-mcp/SKILL.md"
 install_skill "social-mcp"               "social-mcp/SKILL.md"
 install_skill "news-mcp"                 "news-mcp/SKILL.md"
+install_skill "blockbeats-skill"         "blockbeats-mcp/SKILL.md"
 
 # ── done ──────────────────────────────────────────────────────────────────────
 
