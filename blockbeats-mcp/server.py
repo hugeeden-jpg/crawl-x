@@ -13,6 +13,10 @@ Crypto news, on-chain data, market sentiment, derivatives
 import json
 import os
 from pathlib import Path
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from ssl_utils import apply_ssl_fix  # noqa: E402
+apply_ssl_fix()
 
 import requests
 from mcp.server.fastmcp import FastMCP
