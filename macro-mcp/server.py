@@ -881,36 +881,45 @@ def get_breakeven_inflation(months: int = 1) -> str:
 
 @mcp.tool()
 def get_tga_balance(days: int = 60) -> str:
-    """Get US Treasury General Account (TGA) weekly cash balance via FRED (WTREGEN).
+    """Get US Treasury General Account (TGA) daily cash balance (Daily Treasury Statement).
     TGA decrease injects liquidity into banking system (bullish risk assets).
 
     Args:
-        days: Approximate lookback window in days (weekly data, ~days/7 data points)
+        days: Number of recent days to show
     """
     try:
-        r = requests.get(
-            "https://fred.stlouisfed.org/graph/fredgraph.csv",
-            params={"id": "WTREGEN"},
-            timeout=20,
-        )
-        r.raise_for_status()
-        lines_raw = r.text.strip().split("\n")
-        data_rows = [ln.split(",") for ln in lines_raw[1:] if ln and ln.split(",")[1] != "."]
-        data_rows.sort(key=lambda x: x[0], reverse=True)
-        weeks = max(1, days // 7)
-        recent = data_rows[:weeks]
-        lines = ["US Treasury General Account (TGA) Balance (Weekly, FRED WTREGEN)", "=" * 65,
-                 f"{'Date':<14} {'Balance ($B)':>14} {'WoW Change ($B)':>16}"]
-        for i, (date_s, val) in enumerate(recent):
+        end = _date.today()
+        start = end - timedelta(days=days)
+        data = _fiscal_get("/v1/accounting/dts/operating_cash_balance", {
+            "fields": "record_date,open_today_bal",
+            "filter": f"record_date:gte:{start},account_type:eq:Treasury General Account (TGA) Closing Balance",
+            "sort": "-record_date",
+            "page[size]": days,
+        })
+        rows = data.get("data", [])
+        if not rows:
+            return "No TGA balance data found for the requested period."
+        lines = ["US Treasury General Account (TGA) Balance (Daily, DTS)", "=" * 65,
+                 f"{'Date':<14} {'Balance ($B)':>14} {'DoD Change ($B)':>16}"]
+        for i, row in enumerate(rows):
+            date_s = row.get("record_date", "")[:10]
+            val = row.get("open_today_bal", "")
             try:
-                v = float(val) / 1e3
-                chg_str = f"{v - float(recent[i + 1][1]) / 1e3:>+15,.1f}" if i + 1 < len(recent) else f"{'':>16}"
-                lines.append(f"{date_s:<14} {v:>14,.1f} {chg_str}")
+                v = float(val) / 1e3  # DTS values in millions → billions
+                if i + 1 < len(rows):
+                    prev_v = float(rows[i + 1].get("open_today_bal", val)) / 1e3
+                    chg_s = f"{v - prev_v:>+15,.1f}"
+                else:
+                    chg_s = f"{'':>16}"
+                lines.append(f"{date_s:<14} {v:>14,.1f} {chg_s}")
             except Exception:
                 lines.append(f"{date_s:<14} {val:>14}")
-        lines.append("\nNote: Weekly data (Wednesday). TGA decrease injects liquidity into banking system.")
+        lines.append("\nNote: open_today_bal = start-of-day balance (= prior day's closing). Units: $B. Source: DTS.")
         return "\n".join(lines)
     except Exception as e:
+        err = str(e)
+        if "Connection reset" in err or "ConnectionReset" in err or "ConnectionError" in err:
+            return "Error: Cannot reach api.fiscaldata.treasury.gov (proxy/firewall may block TLS). Disable proxy and retry."
         return f"Error: {e}"
 
 
@@ -926,9 +935,9 @@ def get_treasury_auctions(days: int = 30, security_type: str = "") -> str:
         end = _date.today()
         start = end - timedelta(days=days)
         params = {
-            "fields": "record_date,security_type,security_term,offering_amt,bid_to_cover_ratio,accepted_comp_bid_rate_amt,total_accepted_amt,indirect_bid_pct_accepted,issue_date,maturity_date",
-            "filter": f"record_date:gte:{start},record_date:lte:{end}",
-            "sort": "-record_date",
+            "fields": "auction_date,security_type,security_term,offering_amt,total_accepted,total_tendered,bid_to_cover_ratio,high_yield,int_rate",
+            "filter": f"auction_date:gte:{start},auction_date:lte:{end}",
+            "sort": "-auction_date",
             "page[size]": 50,
         }
         if security_type:
@@ -937,24 +946,24 @@ def get_treasury_auctions(days: int = 30, security_type: str = "") -> str:
         rows = data.get("data", [])
         lines = [f"US Treasury Auction Results (last {days} days)" + (f" — {security_type}" if security_type else ""),
                  "=" * 90,
-                 f"{'Date':<12} {'Type':<6} {'Term':<12} {'Offer($B)':>10} {'B/C':>6} {'Hi Rate%':>9} {'Indirect%':>10} {'Accept($B)':>11}"]
+                 f"{'Auction':<12} {'Type':<6} {'Term':<22} {'Offer($B)':>10} {'Accept($B)':>11} {'B/C':>6} {'Hi Yld%':>8} {'Coupon%':>8}"]
         for row in rows:
             try:
-                offer = f"{float(row.get('offering_amt') or 0) / 1e3:>10,.1f}"
+                offer = f"{float(row.get('offering_amt') or 0) / 1e9:>10,.1f}"
             except Exception:
                 offer = f"{'N/A':>10}"
             try:
-                accept = f"{float(row.get('total_accepted_amt') or 0) / 1e3:>11,.1f}"
+                accept = f"{float(row.get('total_accepted') or 0) / 1e9:>11,.1f}"
             except Exception:
                 accept = f"{'N/A':>11}"
-            bc      = row.get("bid_to_cover_ratio") or "N/A"
-            hi_rate = row.get("accepted_comp_bid_rate_amt") or "N/A"
-            indir   = row.get("indirect_bid_pct_accepted") or "N/A"
+            bc     = row.get("bid_to_cover_ratio") or "N/A"
+            hi_yld = row.get("high_yield") or "N/A"
+            coupon = row.get("int_rate") or "N/A"
             lines.append(
-                f"{row.get('record_date','')[:10]:<12} "
+                f"{row.get('auction_date','')[:10]:<12} "
                 f"{row.get('security_type','')[:5]:<6} "
-                f"{row.get('security_term',''):<12} "
-                f"{offer} {bc:>6} {hi_rate:>9} {indir:>10} {accept}"
+                f"{row.get('security_term',''):<22} "
+                f"{offer} {accept} {bc:>6} {hi_yld:>8} {coupon:>8}"
             )
         if not rows:
             lines.append(f"No auction data found for last {days} days.")
@@ -1019,41 +1028,66 @@ def get_federal_budget(months: int = 12) -> str:
         months: Number of recent months to show
     """
     try:
-        end = _date.today()
-        start = (end.replace(day=1) - timedelta(days=months * 28)).replace(day=1)
-        data = _fiscal_get("/v1/accounting/mts/mts_table_1", {
-            "fields": "record_date,line_code_nbr,classification_desc,current_month_gross_rcpt_amt,current_month_gross_outly_amt,current_fytd_gross_rcpt_amt,current_fytd_gross_outly_amt",
-            "filter": f"record_date:gte:{start},line_code_nbr:in:(10,20,30,80)",
+        import re as _re
+        # Step 1: find the latest MTS publication date
+        head = _fiscal_get("/v1/accounting/mts/mts_table_1", {
+            "fields": "record_date",
             "sort": "-record_date",
-            "page[size]": months * 4 + 20,
+            "page[size]": 1,
+        })
+        head_rows = head.get("data", [])
+        if not head_rows:
+            return "No federal budget data found."
+        latest_date = head_rows[0]["record_date"]
+        # Step 2: fetch all rows for that publication (sorted by line_code_nbr)
+        # Structure: "FY YYYY" header rows (null amounts) followed by month rows,
+        # then "Year-to-Date" totals. Two FY sections per publication.
+        data = _fiscal_get("/v1/accounting/mts/mts_table_1", {
+            "fields": "line_code_nbr,classification_desc,current_month_gross_rcpt_amt,current_month_gross_outly_amt",
+            "filter": f"record_date:eq:{latest_date}",
+            "sort": "line_code_nbr",
+            "page[size]": 200,
         })
         rows = data.get("data", [])
         if not rows:
             return "No federal budget data found."
-        # Group by date; use first non-empty amount field available
-        def _pick_amt(row, rcpt_field, outly_field):
-            return row.get(rcpt_field) or row.get(outly_field) or "0"
-        by_date: dict = {}
+        _month_num = {"January": 1, "February": 2, "March": 3, "April": 4,
+                      "May": 5, "June": 6, "July": 7, "August": 8,
+                      "September": 9, "October": 10, "November": 11, "December": 12}
+        # API sorts line_code_nbr as strings ("20" > "150"); sort numerically in Python
+        rows.sort(key=lambda r: int(r.get("line_code_nbr", 0)))
+        current_fy = None
+        monthly_data = []
         for row in rows:
-            d = row.get("record_date", "")[:7]
-            code = row.get("line_code_nbr", "")
-            amt = _pick_amt(row, "current_month_gross_rcpt_amt", "current_month_gross_outly_amt")
-            by_date.setdefault(d, {})[code] = amt
-        dates = sorted(by_date.keys(), reverse=True)[:months]
+            desc  = row.get("classification_desc", "").strip()
+            rcpt  = row.get("current_month_gross_rcpt_amt")
+            outly = row.get("current_month_gross_outly_amt")
+            # Detect fiscal year header (e.g. "FY 2025", "FY 2026")
+            fy_m = _re.match(r"FY (\d{4})", desc)
+            if fy_m:
+                current_fy = int(fy_m.group(1))
+                continue
+            # Skip Year-to-Date totals and null rows
+            if desc == "Year-to-Date" or not rcpt or rcpt == "null":
+                continue
+            if desc in _month_num and current_fy is not None:
+                cal_month = _month_num[desc]
+                # FY starts Oct: Oct–Dec belong to calendar year FY−1; Jan–Sep to FY
+                cal_year = current_fy - 1 if cal_month >= 10 else current_fy
+                ym = f"{cal_year:04d}-{cal_month:02d}"
+                try:
+                    monthly_data.append((ym, float(rcpt) / 1e9, float(outly) / 1e9))
+                except Exception:
+                    pass
+        monthly_data.sort(key=lambda x: x[0], reverse=True)
+        monthly_data = monthly_data[:months]
         lines = ["US Federal Budget Summary (Monthly Treasury Statement)", "=" * 72,
                  f"{'Month':<10} {'Receipts($B)':>13} {'Outlays($B)':>13} {'Surplus/Deficit($B)':>20}"]
-        for d in dates:
-            rec  = by_date[d].get("10", "0")
-            out  = by_date[d].get("20", "0")
-            surp = by_date[d].get("30", "0")
-            try:
-                r_v = float(rec) / 1e3
-                o_v = float(out) / 1e3
-                s_v = float(surp) / 1e3
-                lines.append(f"{d:<10} {r_v:>13,.1f} {o_v:>13,.1f} {s_v:>+20,.1f}")
-            except Exception:
-                lines.append(f"{d:<10} {rec:>13} {out:>13} {surp:>20}")
-        lines.append("\nSource: Monthly Treasury Statement (MTS Table 1). Line 10=Receipts, 20=Outlays, 30=Surplus/Deficit.")
+        for ym, r_v, o_v in monthly_data:
+            lines.append(f"{ym:<10} {r_v:>13,.1f} {o_v:>13,.1f} {o_v - r_v:>+20,.1f}")
+        if not monthly_data:
+            lines.append("No monthly data found.")
+        lines.append(f"\nSource: MTS Table 1, publication {latest_date[:7]}. Deficit = Outlays − Receipts.")
         return "\n".join(lines)
     except Exception as e:
         err = str(e)
