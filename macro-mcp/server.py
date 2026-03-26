@@ -880,45 +880,35 @@ def get_breakeven_inflation(months: int = 1) -> str:
 
 
 @mcp.tool()
-def get_tga_balance(days: int = 30) -> str:
-    """Get US Treasury General Account (TGA) daily cash balance. TGA decrease injects liquidity into banking system.
+def get_tga_balance(days: int = 60) -> str:
+    """Get US Treasury General Account (TGA) weekly cash balance via FRED (WTREGEN).
+    TGA decrease injects liquidity into banking system (bullish risk assets).
 
     Args:
-        days: Number of recent days to show (max 365)
+        days: Approximate lookback window in days (weekly data, ~days/7 data points)
     """
     try:
-        end = _date.today()
-        start = end - timedelta(days=days)
-        data = _fiscal_get("/accounting/dts/operating_cash_balance", {
-            "fields": "record_date,open_today_bal,close_today_bal,account_type",
-            "filter": f"record_date:gte:{start},record_date:lte:{end},account_type:eq:Treasury General Account (TGA) Closing Balance",
-            "sort": "-record_date",
-            "page[size]": min(days, 365),
-        })
-        rows = data.get("data", [])
-        if not rows:
-            data = _fiscal_get("/accounting/dts/operating_cash_balance", {
-                "fields": "record_date,open_today_bal,close_today_bal,account_type",
-                "filter": f"record_date:gte:{start},record_date:lte:{end}",
-                "sort": "-record_date",
-                "page[size]": 200,
-            })
-            rows = [r for r in data.get("data", []) if "TGA" in r.get("account_type", "")]
-        if not rows:
-            return "No TGA balance data found for the requested period."
-        lines = ["US Treasury General Account (TGA) Balance", "=" * 55,
-                 f"{'Date':<14} {'Open ($B)':>12} {'Close ($B)':>12} {'Change ($B)':>13}"]
-        for row in rows:
-            date = row.get("record_date", "")[:10]
-            open_ = row.get("open_today_bal", "")
-            close = row.get("close_today_bal", "")
+        r = requests.get(
+            "https://fred.stlouisfed.org/graph/fredgraph.csv",
+            params={"id": "WTREGEN"},
+            timeout=20,
+        )
+        r.raise_for_status()
+        lines_raw = r.text.strip().split("\n")
+        data_rows = [ln.split(",") for ln in lines_raw[1:] if ln and ln.split(",")[1] != "."]
+        data_rows.sort(key=lambda x: x[0], reverse=True)
+        weeks = max(1, days // 7)
+        recent = data_rows[:weeks]
+        lines = ["US Treasury General Account (TGA) Balance (Weekly, FRED WTREGEN)", "=" * 65,
+                 f"{'Date':<14} {'Balance ($B)':>14} {'WoW Change ($B)':>16}"]
+        for i, (date_s, val) in enumerate(recent):
             try:
-                o = float(open_) / 1e3
-                c = float(close) / 1e3
-                lines.append(f"{date:<14} {o:>12,.1f} {c:>12,.1f} {c - o:>+12,.1f}")
+                v = float(val) / 1e3
+                chg_str = f"{v - float(recent[i + 1][1]) / 1e3:>+15,.1f}" if i + 1 < len(recent) else f"{'':>16}"
+                lines.append(f"{date_s:<14} {v:>14,.1f} {chg_str}")
             except Exception:
-                lines.append(f"{date:<14} {open_:>12} {close:>12}")
-        lines.append("\nNote: TGA decrease injects liquidity into banking system (bullish risk assets)")
+                lines.append(f"{date_s:<14} {val:>14}")
+        lines.append("\nNote: Weekly data (Wednesday). TGA decrease injects liquidity into banking system.")
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"
@@ -961,6 +951,12 @@ def get_treasury_auctions(days: int = 30) -> str:
             lines.append(f"No auction data found for last {days} days.")
         return "\n".join(lines)
     except Exception as e:
+        err = str(e)
+        if "Connection reset" in err or "ConnectionReset" in err or "ConnectionError" in err:
+            return (
+                "Error: Cannot reach api.fiscaldata.treasury.gov — this endpoint is SNI-blocked in some regions (e.g. China mainland).\n"
+                "Alternative: Use get_yield_curve() for current yield data, or get_fred_data(series_id='DGS10') for 10Y yield history."
+            )
         return f"Error: {e}"
 
 
