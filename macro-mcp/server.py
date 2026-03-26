@@ -716,7 +716,7 @@ def list_bls_series() -> str:
 
 # ── US Treasury ───────────────────────────────────────────────────────────────
 
-FISCAL_BASE = "https://api.fiscaldata.treasury.gov/services/api/v1"
+FISCAL_BASE = "https://api.fiscaldata.treasury.gov/services/api/fiscal_service"
 TREASURY_NS = "http://www.w3.org/2005/Atom"
 TREASURY_PROPS_NS = "http://schemas.microsoft.com/ado/2007/08/dataservices"
 TREASURY_META_NS  = "http://schemas.microsoft.com/ado/2007/08/dataservices/metadata"
@@ -915,37 +915,45 @@ def get_tga_balance(days: int = 60) -> str:
 
 
 @mcp.tool()
-def get_treasury_auctions(days: int = 30) -> str:
-    """Get recent US Treasury debt auction results: bills, notes, bonds, TIPS.
+def get_treasury_auctions(days: int = 30, security_type: str = "") -> str:
+    """Get recent US Treasury auction results (bid-to-cover, high yield, allotted amount).
 
     Args:
         days: Look back this many days for auction results
+        security_type: Filter by type: 'Bill', 'Note', 'Bond', 'TIPS', 'FRN' (leave empty for all)
     """
     try:
         end = _date.today()
         start = end - timedelta(days=days)
-        data = _fiscal_get("/accounting/od/upcoming_auctions", {
-            "fields": "security_type,security_term,offering_amt,auction_date,issue_date,maturity_date",
+        params = {
+            "fields": "auction_date,security_type,security_term,offering_amt,bid_to_cover_ratio,high_yield,allotted_amt_1,issue_date,maturity_date",
             "filter": f"auction_date:gte:{start},auction_date:lte:{end}",
             "sort": "-auction_date",
             "page[size]": 50,
-        })
+        }
+        if security_type:
+            params["filter"] += f",security_type:eq:{security_type}"
+        data = _fiscal_get("/v2/accounting/od/auctions_query", params)
         rows = data.get("data", [])
-        lines = [f"US Treasury Auctions (last {days} days)", "=" * 70,
-                 f"{'Auction Date':<14} {'Type':<8} {'Term':<12} {'Offering ($B)':>14} {'Issue Date':<14} {'Maturity':<12}"]
+        lines = [f"US Treasury Auction Results (last {days} days)" + (f" — {security_type}" if security_type else ""),
+                 "=" * 85,
+                 f"{'Date':<12} {'Type':<6} {'Term':<12} {'Offer($B)':>10} {'B/C':>6} {'Hi Yld%':>8} {'Allot($B)':>10}"]
         for row in rows:
-            amt = row.get("offering_amt", "")
             try:
-                amt_fmt = f"${float(amt) / 1e3:>12,.1f}B"
+                offer = f"{float(row.get('offering_amt') or 0) / 1e3:>10,.1f}"
             except Exception:
-                amt_fmt = f"{amt:>13}"
+                offer = f"{'N/A':>10}"
+            try:
+                allot = f"{float(row.get('allotted_amt_1') or 0) / 1e3:>10,.1f}"
+            except Exception:
+                allot = f"{'N/A':>10}"
+            bc   = row.get("bid_to_cover_ratio") or "N/A"
+            hyld = row.get("high_yield") or "N/A"
             lines.append(
-                f"{row.get('auction_date','')[:10]:<14} "
-                f"{row.get('security_type','')[:7]:<8} "
+                f"{row.get('auction_date','')[:10]:<12} "
+                f"{row.get('security_type','')[:5]:<6} "
                 f"{row.get('security_term',''):<12} "
-                f"{amt_fmt:>14} "
-                f"{row.get('issue_date','')[:10]:<14} "
-                f"{row.get('maturity_date','')[:10]:<12}"
+                f"{offer} {bc:>6} {hyld:>8} {allot}"
             )
         if not rows:
             lines.append(f"No auction data found for last {days} days.")
@@ -954,9 +962,100 @@ def get_treasury_auctions(days: int = 30) -> str:
         err = str(e)
         if "Connection reset" in err or "ConnectionReset" in err or "ConnectionError" in err:
             return (
-                "Error: Cannot reach api.fiscaldata.treasury.gov — this endpoint is SNI-blocked in some regions (e.g. China mainland).\n"
+                "Error: Cannot reach api.fiscaldata.treasury.gov (SNI-blocked in some regions).\n"
                 "Alternative: Use get_yield_curve() for current yield data, or get_fred_data(series_id='DGS10') for 10Y yield history."
             )
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_national_debt(days: int = 30) -> str:
+    """Get daily US national debt (total public debt outstanding) from FiscalData.
+
+    Args:
+        days: Number of recent days to show
+    """
+    try:
+        end = _date.today()
+        start = end - timedelta(days=days)
+        data = _fiscal_get("/v2/accounting/od/debt_to_penny", {
+            "fields": "record_date,tot_pub_debt_out_amt",
+            "filter": f"record_date:gte:{start},record_date:lte:{end}",
+            "sort": "-record_date",
+            "page[size]": min(days, 365),
+        })
+        rows = data.get("data", [])
+        if not rows:
+            return "No national debt data found for the requested period."
+        lines = ["US National Debt (Total Public Debt Outstanding)", "=" * 55,
+                 f"{'Date':<14} {'Total Debt ($T)':>16} {'Daily Change ($B)':>18}"]
+        for i, row in enumerate(rows):
+            date_s = row.get("record_date", "")[:10]
+            val = row.get("tot_pub_debt_out_amt", "")
+            try:
+                v = float(val) / 1e12
+                if i + 1 < len(rows):
+                    chg = (float(val) - float(rows[i + 1].get("tot_pub_debt_out_amt", val))) / 1e9
+                    chg_s = f"{chg:>+17,.1f}"
+                else:
+                    chg_s = f"{'':>18}"
+                lines.append(f"{date_s:<14} {v:>16,.3f} {chg_s}")
+            except Exception:
+                lines.append(f"{date_s:<14} {val:>16}")
+        return "\n".join(lines)
+    except Exception as e:
+        err = str(e)
+        if "Connection reset" in err or "ConnectionReset" in err or "ConnectionError" in err:
+            return "Error: Cannot reach api.fiscaldata.treasury.gov (SNI-blocked in some regions)."
+        return f"Error: {e}"
+
+
+@mcp.tool()
+def get_federal_budget(months: int = 12) -> str:
+    """Get monthly US federal budget summary: receipts, outlays, and surplus/deficit (Monthly Treasury Statement).
+
+    Args:
+        months: Number of recent months to show
+    """
+    try:
+        end = _date.today()
+        start = (end.replace(day=1) - timedelta(days=months * 28)).replace(day=1)
+        data = _fiscal_get("/v1/accounting/mts/mts_table_1", {
+            "fields": "record_date,line_code_nbr,line_nm,current_month_rcpt_outly_amt,current_fytd_rcpt_outly_amt",
+            "filter": f"record_date:gte:{start},line_code_nbr:in:(10,20,30,80)",
+            "sort": "-record_date",
+            "page[size]": months * 4 + 20,
+        })
+        rows = data.get("data", [])
+        if not rows:
+            return "No federal budget data found."
+        # Group by date
+        by_date: dict = {}
+        for row in rows:
+            d = row.get("record_date", "")[:7]
+            code = row.get("line_code_nbr", "")
+            amt = row.get("current_month_rcpt_outly_amt", "") or "0"
+            by_date.setdefault(d, {})[code] = amt
+        dates = sorted(by_date.keys(), reverse=True)[:months]
+        lines = ["US Federal Budget Summary (Monthly Treasury Statement)", "=" * 72,
+                 f"{'Month':<10} {'Receipts($B)':>13} {'Outlays($B)':>13} {'Surplus/Deficit($B)':>20}"]
+        for d in dates:
+            rec  = by_date[d].get("10", "0")
+            out  = by_date[d].get("20", "0")
+            surp = by_date[d].get("30", "0")
+            try:
+                r_v = float(rec) / 1e3
+                o_v = float(out) / 1e3
+                s_v = float(surp) / 1e3
+                lines.append(f"{d:<10} {r_v:>13,.1f} {o_v:>13,.1f} {s_v:>+20,.1f}")
+            except Exception:
+                lines.append(f"{d:<10} {rec:>13} {out:>13} {surp:>20}")
+        lines.append("\nSource: Monthly Treasury Statement (MTS Table 1). Line 10=Receipts, 20=Outlays, 30=Surplus/Deficit.")
+        return "\n".join(lines)
+    except Exception as e:
+        err = str(e)
+        if "Connection reset" in err or "ConnectionReset" in err or "ConnectionError" in err:
+            return "Error: Cannot reach api.fiscaldata.treasury.gov (SNI-blocked in some regions)."
         return f"Error: {e}"
 
 

@@ -4,8 +4,8 @@ description: >
   Access macroeconomic data and government filings. Use for Fed Funds Rate, CPI,
   GDP, unemployment, M2, treasury yields, EUR/USD, and any FRED economic series.
   Also provides BLS labor data (CPI/PPI/NFP/JOLTS), US Treasury yield curve,
-  TGA balance, treasury auctions, Fed balance sheet, and extended SEC EDGAR tools
-  (full-text search, XBRL facts, insider Form 4, company info).
+  TGA balance, auction results, national debt, federal budget, Fed balance sheet,
+  and extended SEC EDGAR tools (full-text search, XBRL facts, insider Form 4, company info).
 ---
 
 # Macro Data MCP
@@ -62,8 +62,10 @@ Claude Desktop config:
 | `get_yield_curve(months)` | No | Full nominal yield curve 1M–30Y + key spreads (2s10s, 3m10y) |
 | `get_real_yield_curve(months)` | No | TIPS real yield curve 5Y–30Y |
 | `get_breakeven_inflation(months)` | No | Breakeven inflation = nominal − real |
-| `get_tga_balance(days)` | No | Treasury General Account daily balance |
-| `get_treasury_auctions(days)` | No | Recent debt auction results (bills/notes/bonds/TIPS) |
+| `get_tga_balance(days)` | No | Treasury General Account weekly balance (FRED WTREGEN) |
+| `get_treasury_auctions(days, security_type)` | No | Auction results: bid-to-cover, high yield, allotted amt |
+| `get_national_debt(days)` | No | Daily total public debt outstanding |
+| `get_federal_budget(months)` | No | Monthly receipts, outlays, surplus/deficit (MTS) |
 | `get_fed_balance_sheet(months)` | No | Fed total assets (WALCL) — QE/QT tracker |
 
 ### SEC EDGAR (Basic)
