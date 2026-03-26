@@ -926,34 +926,35 @@ def get_treasury_auctions(days: int = 30, security_type: str = "") -> str:
         end = _date.today()
         start = end - timedelta(days=days)
         params = {
-            "fields": "auction_date,security_type,security_term,offering_amt,bid_to_cover_ratio,high_yield,allotted_amt_1,issue_date,maturity_date",
-            "filter": f"auction_date:gte:{start},auction_date:lte:{end}",
-            "sort": "-auction_date",
+            "fields": "record_date,security_type,security_term,offering_amt,bid_to_cover_ratio,accepted_comp_bid_rate_amt,total_accepted_amt,indirect_bid_pct_accepted,issue_date,maturity_date",
+            "filter": f"record_date:gte:{start},record_date:lte:{end}",
+            "sort": "-record_date",
             "page[size]": 50,
         }
         if security_type:
             params["filter"] += f",security_type:eq:{security_type}"
-        data = _fiscal_get("/v2/accounting/od/auctions_query", params)
+        data = _fiscal_get("/v1/accounting/od/auctions_query", params)
         rows = data.get("data", [])
         lines = [f"US Treasury Auction Results (last {days} days)" + (f" — {security_type}" if security_type else ""),
-                 "=" * 85,
-                 f"{'Date':<12} {'Type':<6} {'Term':<12} {'Offer($B)':>10} {'B/C':>6} {'Hi Yld%':>8} {'Allot($B)':>10}"]
+                 "=" * 90,
+                 f"{'Date':<12} {'Type':<6} {'Term':<12} {'Offer($B)':>10} {'B/C':>6} {'Hi Rate%':>9} {'Indirect%':>10} {'Accept($B)':>11}"]
         for row in rows:
             try:
                 offer = f"{float(row.get('offering_amt') or 0) / 1e3:>10,.1f}"
             except Exception:
                 offer = f"{'N/A':>10}"
             try:
-                allot = f"{float(row.get('allotted_amt_1') or 0) / 1e3:>10,.1f}"
+                accept = f"{float(row.get('total_accepted_amt') or 0) / 1e3:>11,.1f}"
             except Exception:
-                allot = f"{'N/A':>10}"
-            bc   = row.get("bid_to_cover_ratio") or "N/A"
-            hyld = row.get("high_yield") or "N/A"
+                accept = f"{'N/A':>11}"
+            bc      = row.get("bid_to_cover_ratio") or "N/A"
+            hi_rate = row.get("accepted_comp_bid_rate_amt") or "N/A"
+            indir   = row.get("indirect_bid_pct_accepted") or "N/A"
             lines.append(
-                f"{row.get('auction_date','')[:10]:<12} "
+                f"{row.get('record_date','')[:10]:<12} "
                 f"{row.get('security_type','')[:5]:<6} "
                 f"{row.get('security_term',''):<12} "
-                f"{offer} {bc:>6} {hyld:>8} {allot}"
+                f"{offer} {bc:>6} {hi_rate:>9} {indir:>10} {accept}"
             )
         if not rows:
             lines.append(f"No auction data found for last {days} days.")
@@ -1021,7 +1022,7 @@ def get_federal_budget(months: int = 12) -> str:
         end = _date.today()
         start = (end.replace(day=1) - timedelta(days=months * 28)).replace(day=1)
         data = _fiscal_get("/v1/accounting/mts/mts_table_1", {
-            "fields": "record_date,line_code_nbr,line_nm,current_month_rcpt_outly_amt,current_fytd_rcpt_outly_amt",
+            "fields": "record_date,line_code_nbr,classification_desc,current_month_gross_rcpt_amt,current_month_gross_outly_amt,current_fytd_gross_rcpt_amt,current_fytd_gross_outly_amt",
             "filter": f"record_date:gte:{start},line_code_nbr:in:(10,20,30,80)",
             "sort": "-record_date",
             "page[size]": months * 4 + 20,
@@ -1029,12 +1030,14 @@ def get_federal_budget(months: int = 12) -> str:
         rows = data.get("data", [])
         if not rows:
             return "No federal budget data found."
-        # Group by date
+        # Group by date; use first non-empty amount field available
+        def _pick_amt(row, rcpt_field, outly_field):
+            return row.get(rcpt_field) or row.get(outly_field) or "0"
         by_date: dict = {}
         for row in rows:
             d = row.get("record_date", "")[:7]
             code = row.get("line_code_nbr", "")
-            amt = row.get("current_month_rcpt_outly_amt", "") or "0"
+            amt = _pick_amt(row, "current_month_gross_rcpt_amt", "current_month_gross_outly_amt")
             by_date.setdefault(d, {})[code] = amt
         dates = sorted(by_date.keys(), reverse=True)[:months]
         lines = ["US Federal Budget Summary (Monthly Treasury Statement)", "=" * 72,
