@@ -3,7 +3,6 @@
 # dependencies = [
 #   "mcp[cli]>=1.0.0",
 #   "requests>=2.31.0",
-#   "curl_cffi>=0.6.0",
 # ]
 # ///
 """
@@ -22,7 +21,6 @@ apply_ssl_fix()
 
 import xml.etree.ElementTree as ET
 import requests
-from curl_cffi import requests as cffi_requests
 from datetime import datetime, timedelta, date as _date
 
 from mcp.server.fastmcp import FastMCP
@@ -759,9 +757,7 @@ def _fetch_yield_xml(data_type: str, year_month: str) -> list:
 
 
 def _fiscal_get(endpoint: str, params: dict) -> dict:
-    r = cffi_requests.get(
-        f"{FISCAL_BASE}{endpoint}", params=params, timeout=20, impersonate="chrome"
-    )
+    r = requests.get(f"{FISCAL_BASE}{endpoint}", params=params, timeout=20)
     r.raise_for_status()
     return r.json()
 
