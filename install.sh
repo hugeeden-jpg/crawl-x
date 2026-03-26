@@ -173,6 +173,8 @@ _TW_AUTH_EXIST="$(json_get "$HOME/.config/social-mcp/config.json"      "auth_tok
 _TW_CT0_EXIST="$(json_get  "$HOME/.config/social-mcp/config.json"      "ct0")"
 _NEWSAPI_EXIST="$(json_get "$HOME/.config/news-mcp/config.json"        "newsapi_key")"
 _BB_EXIST="$(json_get      "$HOME/.config/blockbeats-mcp/config.json"  "api_key")"
+_BLS_EXIST="$(json_get     "$HOME/.config/macro-mcp/config.json"       "bls_api_key")"
+_CMC_EXIST="$(json_get     "$HOME/.config/cmc-mcp/config.json"         "cmc_api_key")"
 
 # ── FRED (required) ──────────────────────────────────────────────────────────
 echo "┌─ [required] FRED_API_KEY — macro-mcp (Fed rates, CPI, GDP, M2, treasury yields)"
@@ -268,6 +270,24 @@ echo "│  2. Subscribe → Account → API Key"
 echo "└─"
 prompt_key BLOCKBEATS_API_KEY "  BLOCKBEATS_API_KEY (blockbeats, optional)" "$_BB_EXIST"
 
+# ── BLS Bureau of Labor Statistics (optional) ─────────────────────────────
+echo ""
+echo "┌─ [optional] BLS_API_KEY — macro-data (CPI/PPI/NFP/JOLTS via BLS direct API)"
+echo "│  Free key, raises rate limits. Works without a key at lower limits."
+echo "│  1. Visit: https://www.bls.gov/developers/api_signature_v2.htm"
+echo "│  2. Register for free → receive key by email"
+echo "└─"
+prompt_key BLS_API_KEY "  BLS_API_KEY         (macro, optional)    " "$_BLS_EXIST"
+
+# ── CoinMarketCap (optional) ──────────────────────────────────────────────
+echo ""
+echo "┌─ [optional] CMC_API_KEY — cmc-data (crypto rankings, global metrics, CMC Fear & Greed)"
+echo "│  Free Basic plan: 10,000 credits/month (~300 req/day). No credit card."
+echo "│  1. Visit: https://coinmarketcap.com/api/"
+echo "│  2. Sign up → My Account → API Keys → Copy key"
+echo "└─"
+prompt_key CMC_API_KEY "  CMC_API_KEY         (cmc, optional)       " "$_CMC_EXIST"
+
 # ── write API keys to each MCP's config file ─────────────────────────────────
 
 echo ""
@@ -292,7 +312,9 @@ PY
 write_config "$HOME/.config/grok-mcp/config.json"          "api_key=$XAI_API_KEY"
 write_config "$HOME/.config/market-data-mcp/config.json"   "finnhub_api_key=$FINNHUB_API_KEY" \
                                                             "simfin_api_key=$SIMFIN_API_KEY"
-write_config "$HOME/.config/macro-mcp/config.json"         "fred_api_key=$FRED_API_KEY"
+write_config "$HOME/.config/macro-mcp/config.json"         "fred_api_key=$FRED_API_KEY" \
+                                                            "bls_api_key=$BLS_API_KEY"
+write_config "$HOME/.config/cmc-mcp/config.json"           "cmc_api_key=$CMC_API_KEY"
 write_config "$HOME/.config/sentiment-mcp/config.json"     "quiver_api_key=$QUIVER_API_KEY"
 write_config "$HOME/.config/crypto-mcp/config.json"        "coingecko_api_key=$COINGECKO_API_KEY" \
                                                             "glassnode_api_key=$GLASSNODE_API_KEY"
@@ -335,6 +357,12 @@ else
   echo "  blockbeats-mcp → mcp__blockbeats-mcp__configure(api_key=\"...\")"
   echo "    stores to:    ~/.config/blockbeats-mcp/config.json"
   echo ""
+  echo "  macro-data    → mcp__macro-data__configure_bls(bls_api_key=\"...\")"
+  echo "    stores to:    ~/.config/macro-mcp/config.json"
+  echo ""
+  echo "  cmc-data      → mcp__cmc-data__configure(cmc_api_key=\"...\")"
+  echo "    stores to:    ~/.config/cmc-mcp/config.json"
+  echo ""
 fi
 
 # ── register MCPs ─────────────────────────────────────────────────────────────
@@ -358,6 +386,8 @@ register "financial-scraper" "scrape-mcp/server.py"
 register "social-data"       "social-mcp/server.py"
 register "news-data"         "news-mcp/server.py"
 register "blockbeats-mcp"    "blockbeats-mcp/server.py"
+register "binance-mcp"       "binance-mcp/server.py"
+register "cmc-data"          "cmc-mcp/server.py"
 
 # ── optionally generate Claude Desktop config ─────────────────────────────────
 
@@ -378,7 +408,9 @@ if $DESKTOP_MODE; then
     "financial-scraper": {"command": "uv", "args": ["run", "$REPO_DIR/scrape-mcp/server.py"]},
     "social-data":       {"command": "uv", "args": ["run", "$REPO_DIR/social-mcp/server.py"]},
     "news-data":         {"command": "uv", "args": ["run", "$REPO_DIR/news-mcp/server.py"]},
-    "blockbeats-mcp":    {"command": "uv", "args": ["run", "$REPO_DIR/blockbeats-mcp/server.py"]}
+    "blockbeats-mcp":    {"command": "uv", "args": ["run", "$REPO_DIR/blockbeats-mcp/server.py"]},
+    "binance-mcp":       {"command": "uv", "args": ["run", "$REPO_DIR/binance-mcp/server.py"]},
+    "cmc-data":          {"command": "uv", "args": ["run", "$REPO_DIR/cmc-mcp/server.py"]}
   }
 }
 JSON
@@ -413,6 +445,8 @@ install_skill "scrape-mcp"               "scrape-mcp/SKILL.md"
 install_skill "social-mcp"               "social-mcp/SKILL.md"
 install_skill "news-mcp"                 "news-mcp/SKILL.md"
 install_skill "blockbeats-skill"         "blockbeats-mcp/SKILL.md"
+install_skill "binance-mcp"              "binance-mcp/SKILL.md"
+install_skill "cmc-mcp"                  "cmc-mcp/SKILL.md"
 
 # ── done ──────────────────────────────────────────────────────────────────────
 

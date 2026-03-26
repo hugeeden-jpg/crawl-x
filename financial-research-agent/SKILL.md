@@ -9,7 +9,7 @@ description: >
 
 # Financial Research Agent
 
-Full-stack financial research via 9 MCP servers.
+Full-stack financial research via 11 MCP servers.
 
 ## MCP Ecosystem Map
 
@@ -17,13 +17,15 @@ Full-stack financial research via 9 MCP servers.
 |------------|-------------|---------|
 | `grok-news` | X/Twitter via Grok AI | AI-synthesized X sentiment, trend analysis (requires XAI key, optional) |
 | `market-data` | yfinance + Finnhub + SimFin | Stock quotes, history, financials, earnings, standardized cross-company statements |
-| `macro-data` | FRED + SEC EDGAR | Fed rates, CPI, GDP, 13F filings |
+| `macro-data` | FRED + BLS + US Treasury + SEC EDGAR | Fed rates, CPI/PPI/NFP/JOLTS (BLS direct), full yield curve, TGA balance, treasury auctions, Fed balance sheet, XBRL facts, insider Form 4 |
 | `news-data` | GDELT + NewsAPI.org | Global news search, top headlines, sentiment timeline. GDELT free; NewsAPI free key (100 req/day) |
 | `sentiment-data` | Alternative.me + Quiver | Fear/Greed, congressional trades, insider sentiment |
 | `crypto-data` | CoinGecko + DeFi Llama + Glassnode | Crypto prices, DeFi TVL, on-chain metrics |
 | `financial-scraper` | OpenInsider + Capitol Trades + CME FedWatch + Circle + The Block + QuiverQuant | Insider trades, political trades, rate probabilities, USDC reserves, crypto news, congress trading chart |
 | `social-data` | Reddit (public JSON) + Twitter/X (xreach) + YouTube (yt-dlp) | Raw social posts, WSB, KOL timelines, earnings transcripts |
 | `blockbeats-mcp` | BlockBeats Pro API | Crypto newsflash/articles, keyword search, BTC ETF flows, on-chain tx, stablecoin market cap, derivatives OI, macro (M2/DXY/treasury), sentiment indicator |
+| `binance-mcp` | Binance FAPI (public) | Futures funding rates, open interest, long/short ratio, liquidations, basis, top movers, OHLCV |
+| `cmc-data` | CoinMarketCap | Crypto rankings, real-time quotes, global metrics, category/sector analysis, trending coins, CMC Fear & Greed |
 
 ## API Key Configuration
 
@@ -41,6 +43,8 @@ All API keys are stored in `~/.config/<mcp>/config.json`. Use the `configure()` 
 | `social-data` | `auth_token` + `ct0` | `~/.config/social-mcp/config.json` | Optional | x.com cookies — use **Cookie Picker** extension (`extensions/cookie-picker/`), load unpacked in Chrome, open on x.com, `auth_token` + `ct0` are pre-selected; also install xreach: `npm install -g xreach-cli` |
 | `news-data` | `newsapi_key` | `~/.config/news-mcp/config.json` | Optional | https://newsapi.org/register — free (100 req/day) |
 | `blockbeats-mcp` | `api_key` | `~/.config/blockbeats-mcp/config.json` | Optional | https://www.theblockbeats.info/ — BlockBeats Pro subscription |
+| `macro-data` | `bls_api_key` | `~/.config/macro-mcp/config.json` | Optional | https://www.bls.gov/developers/ — free registration |
+| `cmc-data` | `cmc_api_key` | `~/.config/cmc-mcp/config.json` | Optional | https://coinmarketcap.com/api/ — free Basic plan |
 
 **Without any keys:** `macro-data` (FRED) is the only hard requirement. `crypto-data`, `financial-scraper`, and `social-data` (Reddit/YouTube) all work without keys.
 
@@ -54,6 +58,8 @@ crypto-data:    configure(coingecko_api_key="...", glassnode_api_key="...")
 social-data:    configure_twitter(auth_token="...", ct0="...")
 news-data:      configure(newsapi_key="...")
 blockbeats-mcp: configure(api_key="...")
+macro-data:     configure_bls(bls_api_key="...")
+cmc-data:       configure(cmc_api_key="...")
 ```
 
 ## Claude Desktop Config
@@ -69,7 +75,9 @@ blockbeats-mcp: configure(api_key="...")
     "financial-scraper": {"command": "uv", "args": ["run", "/path/to/crawl-x/scrape-mcp/server.py"]},
     "social-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/social-mcp/server.py"]},
     "news-data":         {"command": "uv", "args": ["run", "/path/to/crawl-x/news-mcp/server.py"]},
-    "blockbeats-mcp":    {"command": "uv", "args": ["run", "/path/to/crawl-x/blockbeats-mcp/server.py"]}
+    "blockbeats-mcp":    {"command": "uv", "args": ["run", "/path/to/crawl-x/blockbeats-mcp/server.py"]},
+    "binance-mcp":       {"command": "uv", "args": ["run", "/path/to/crawl-x/binance-mcp/server.py"]},
+    "cmc-data":          {"command": "uv", "args": ["run", "/path/to/crawl-x/cmc-mcp/server.py"]}
   }
 }
 ```

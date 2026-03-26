@@ -9,7 +9,7 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | MCP | Server Name | Description | API Key |
 |-----|-------------|-------------|---------|
 | `market-data-mcp` | `market-data` | Stock quotes, financials, news, earnings | Finnhub (optional) |
-| `macro-mcp` | `macro-data` | FRED economic data, SEC EDGAR filings | FRED (required) |
+| `macro-mcp` | `macro-data` | FRED economic data, BLS labor stats (CPI/PPI/NFP/JOLTS), US Treasury yield curve/TGA/auctions, Fed balance sheet, SEC EDGAR filings + XBRL facts + insider Form 4 | FRED (required), BLS (optional) |
 | `crypto-mcp` | `crypto-data` | CoinGecko prices, DeFi TVL, Glassnode on-chain | optional |
 | `sentiment-mcp` | `sentiment-data` | Fear & Greed Index, congressional/insider sentiment (Quiver) | optional |
 | `scrape-mcp` | `financial-scraper` | OpenInsider trades, Capitol Trades, CME FedWatch, Circle reserves, The Block news, QuiverQuant congress chart | none |
@@ -17,6 +17,8 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `grok-mcp` | `grok-news` | X/Twitter news and sentiment via Grok API | XAI (optional) |
 | `social-mcp` | `social-data` | Reddit (public), Twitter/X (xreach), YouTube (yt-dlp) | optional |
 | `blockbeats-mcp` | `blockbeats-mcp` | Crypto newsflash/articles, BTC ETF flows, on-chain data, derivatives OI, macro (M2/DXY/treasury), sentiment indicator | BlockBeats Pro (optional) |
+| `binance-mcp` | `binance-mcp` | Binance futures: funding rates, open interest, long/short ratio, liquidations, basis, top movers, OHLCV | none |
+| `cmc-mcp` | `cmc-data` | CoinMarketCap rankings, quotes, global metrics, categories, trending, Fear & Greed | CMC (optional) |
 
 ---
 
@@ -45,7 +47,7 @@ The script will:
 - Install Scrapling + Playwright browsers (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
 - Auto-install `yt-dlp` if missing (required by `social-mcp` for YouTube)
 - Prompt for API keys — **press Enter to keep any already-configured value**
-- Register all 9 MCPs to Claude CLI via `claude mcp add`
+- Register all 11 MCPs to Claude CLI via `claude mcp add`
 
 **Agent / CI usage** — skip the interactive key prompts and configure keys afterwards via each MCP's `configure` tool:
 
@@ -78,6 +80,8 @@ bash install.sh --desktop
 | `TWITTER_AUTH_TOKEN` | social-mcp | x.com cookie (Cookie Picker extension → `auth_token`) |
 | `TWITTER_CT0` | social-mcp | x.com cookie (Cookie Picker extension → `ct0`) |
 | `BLOCKBEATS_API_KEY` | blockbeats-mcp | [theblockbeats.info](https://www.theblockbeats.info/) — BlockBeats Pro subscription |
+| `BLS_API_KEY` | macro-mcp | [bls.gov/developers](https://www.bls.gov/developers/api_signature_v2.htm) — free, increases rate limits |
+| `CMC_API_KEY` | cmc-mcp | [coinmarketcap.com/api](https://coinmarketcap.com/api/) — free Basic plan |
 
 Keys are stored in `~/.config/<mcp-name>/config.json` — **not** in `.env` files or Claude MCP env vars. Configure them interactively during `install.sh`, or call each MCP's `configure` tool afterwards (e.g. `mcp__macro-data__configure(fred_api_key="...")`).
 
@@ -124,6 +128,8 @@ Restart Claude Desktop to load the MCPs.
 ### macro-data
 | Tool | Description |
 |------|-------------|
+| `configure(fred_api_key)` | Save FRED API key |
+| `configure_bls(bls_api_key)` | Save BLS API key (optional, increases rate limits) |
 | `search_fred_series` | Search FRED economic series by keyword |
 | `get_fred_data` | Fetch a FRED time series |
 | `get_key_indicators` | Fed rate, 10Y yield, CPI, unemployment |
@@ -131,6 +137,46 @@ Restart Claude Desktop to load the MCPs.
 | `get_recent_filings` | Recent 10-K/10-Q/8-K filings for a company |
 | `get_13f_holdings` | 13F filing metadata and archive link for a fund |
 | `get_filing_text` | Metadata and archive URL for a specific SEC filing |
+| `get_cpi` | CPI headline + core (+ Food/Energy/Shelter/Medical breakdown) via BLS |
+| `get_ppi` | PPI Final Demand + core + goods + services via BLS |
+| `get_jobs_report` | Nonfarm Payrolls, unemployment, wages, hours, participation rate |
+| `get_jolts` | Job openings, hires, quits, layoffs, openings-to-hires ratio |
+| `get_bls_series` | Fetch any BLS series by ID |
+| `list_bls_series` | List all pre-configured BLS series IDs |
+| `get_yield_curve` | Full US Treasury nominal yield curve 1M–30Y + key spreads |
+| `get_real_yield_curve` | TIPS real yield curve 5Y–30Y |
+| `get_breakeven_inflation` | Breakeven inflation = nominal − real yield |
+| `get_tga_balance` | Treasury General Account daily cash balance |
+| `get_treasury_auctions` | Recent debt auction results (bills/notes/bonds/TIPS) |
+| `get_fed_balance_sheet` | Fed total assets (WALCL) — QE/QT tracker |
+| `search_filings` | Full-text search across all SEC EDGAR filings |
+| `get_company_facts` | XBRL financial facts (Revenues, Assets, NetIncomeLoss, etc.) |
+| `get_insider_transactions` | Form 4 insider buy/sell filings for a company |
+| `get_company_info` | Company CIK, SIC, exchanges, fiscal year, address |
+
+### binance-mcp
+| Tool | Description |
+|------|-------------|
+| `get_funding_rate` | Current and historical funding rates for a USDT-M futures contract |
+| `get_open_interest` | Open interest history — contracts + USD value |
+| `get_long_short_ratio` | Top trader long/short position ratio |
+| `get_liquidations_summary` | Recent forced liquidations with long/short totals |
+| `get_market_stats` | 24h price stats: price, change, high, low, volume |
+| `get_top_movers` | Top gainers and losers across all USDT-M futures |
+| `get_futures_kline` | OHLCV candlestick data |
+| `get_basis` | Futures basis vs spot index (premium/discount %) |
+
+### cmc-data
+| Tool | Description |
+|------|-------------|
+| `configure` | Save CMC API key |
+| `get_listings` | Top cryptocurrencies by market cap, volume, or 24h change |
+| `get_quote` | Real-time quotes for one or more coins (e.g. `"BTC,ETH,SOL"`) |
+| `get_global_metrics` | Total market cap, BTC/ETH dominance, DeFi, stablecoins, derivatives |
+| `get_category_list` | All CMC categories (DeFi, Layer-1, Meme, AI, etc.) with stats |
+| `get_category` | All coins in a category with performance data |
+| `get_trending` | Currently trending coins on CoinMarketCap |
+| `get_fear_greed` | CMC Fear & Greed Index — last 7 days |
 
 ### crypto-data
 | Tool | Description |
