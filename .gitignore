@@ -1,5 +1,6 @@
 # Local dependencies and reference files
 .depends/
+.specs/
 
 # uv cache and virtual environments
 .venv/
