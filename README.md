@@ -19,6 +19,8 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `blockbeats-mcp` | `blockbeats-mcp` | Crypto newsflash/articles, BTC ETF flows, on-chain data, derivatives OI, macro (M2/DXY/treasury), sentiment indicator | BlockBeats Pro (optional) |
 | `binance-mcp` | `binance-mcp` | Binance futures: funding rates, open interest, long/short ratio, liquidations, basis, top movers, OHLCV | none |
 | `cmc-mcp` | `cmc-data` | CoinMarketCap rankings, quotes, global metrics, categories, trending, Fear & Greed | CMC (optional) |
+| `wikipedia-mcp` | `wikipedia-data` | English Wikipedia: search, summary, full article (cached locally), sections, links, related topics, key facts, coordinates | none |
+| *(external)* | `ScraplingServer` | General-purpose web scraping: static/JS/Cloudflare pages, bulk fetch, CSS selector extraction, session management | none |
 
 ---
 
@@ -47,7 +49,7 @@ The script will:
 - Install Scrapling + Playwright browsers (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
 - Auto-install `yt-dlp` if missing (required by `social-mcp` for YouTube)
 - Prompt for API keys — **press Enter to keep any already-configured value**
-- Register all 11 MCPs to Claude CLI via `claude mcp add`
+- Register all 13 MCPs to Claude CLI via `claude mcp add` (12 custom + ScraplingServer external)
 
 **Agent / CI usage** — skip the interactive key prompts and configure keys afterwards via each MCP's `configure` tool:
 
@@ -177,6 +179,18 @@ Restart Claude Desktop to load the MCPs.
 | `get_category` | All coins in a category with performance data |
 | `get_trending` | Currently trending coins on CoinMarketCap |
 | `get_fear_greed` | CMC Fear & Greed Index — last 7 days |
+
+### wikipedia-data
+| Tool | Description |
+|------|-------------|
+| `search_wikipedia(query, limit)` | Search Wikipedia and return matching article titles (max 20) |
+| `get_summary(title, sentences)` | Introductory summary of an article (default 5 sentences) |
+| `get_article(title)` | Fetch full article text, cache to `~/.cache/wikipedia-mcp/<title>.md`, return file path |
+| `get_sections(title)` | All sections with 500-char preview each |
+| `get_links(title, limit)` | Internal Wikipedia links within an article (default 50) |
+| `get_related_topics(title, limit)` | Related categories and linked articles (default 10) |
+| `extract_key_facts(title, count)` | Key facts as numbered sentences from article summary (default 5) |
+| `get_coordinates(title)` | Latitude/longitude for geographic articles; graceful error for non-geographic pages |
 
 ### crypto-data
 | Tool | Description |
@@ -314,6 +328,9 @@ crawl-x/
 ├── social-mcp/server.py
 ├── news-mcp/server.py
 ├── blockbeats-mcp/server.py
+├── wikipedia-mcp/server.py
+├── scrapling-mcp/                # ScraplingServer skill (external MCP)
+│   └── SKILL.md
 ├── financial-research-agent/     # Master agent skill
 │   └── SKILL.md
 └── tests/                        # Regression test suite

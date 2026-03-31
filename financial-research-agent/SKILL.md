@@ -9,7 +9,7 @@ description: >
 
 # Financial Research Agent
 
-Full-stack financial research via 11 MCP servers.
+Full-stack financial research via 12 MCP servers.
 
 ## MCP Ecosystem Map
 
@@ -26,6 +26,7 @@ Full-stack financial research via 11 MCP servers.
 | `blockbeats-mcp` | BlockBeats Pro API | Crypto newsflash/articles, keyword search, BTC ETF flows, on-chain tx, stablecoin market cap, derivatives OI, macro (M2/DXY/treasury), sentiment indicator |
 | `binance-mcp` | Binance FAPI (public) | Futures funding rates, open interest, long/short ratio, liquidations, basis, top movers, OHLCV |
 | `cmc-data` | CoinMarketCap | Crypto rankings, real-time quotes, global metrics, category/sector analysis, trending coins, CMC Fear & Greed |
+| `wikipedia-data` | English Wikipedia | Factual lookups, concept background, company/person profiles, geographic coordinates, article deep-dives (full text cached locally) |
 
 ## API Key Configuration
 

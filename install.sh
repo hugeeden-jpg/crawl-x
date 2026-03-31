@@ -96,17 +96,23 @@ if ! command -v claude &>/dev/null; then
 fi
 ok "claude CLI found"
 
-# ── Scrapling (required by scrape-mcp for Capitol Trades / CME FedWatch) ─────
+# ── Scrapling (required by scrape-mcp + ScraplingServer MCP) ─────────────────
 
 echo ""
 echo "Checking Scrapling..."
 if uv tool list 2>/dev/null | grep -q scrapling; then
   ok "Scrapling already installed"
 else
-  info "Installing Scrapling (needed for scrape-mcp)..."
+  info "Installing Scrapling (needed for scrape-mcp + ScraplingServer MCP)..."
   uv tool install "scrapling[all]>=0.4.2"
   ok "Scrapling installed"
 fi
+
+# Capture executable path for MCP registration later
+# uv installs tools to ~/.local/bin which may not be in PATH yet
+SCRAPLING_BIN="$(command -v scrapling 2>/dev/null \
+  || [[ -x "$HOME/.local/bin/scrapling" ]] && echo "$HOME/.local/bin/scrapling" \
+  || true)"
 
 # Install Playwright browsers inside the Scrapling tool environment
 info "Installing Scrapling browser dependencies..."
@@ -388,6 +394,17 @@ register "news-data"         "news-mcp/server.py"
 register "blockbeats-mcp"    "blockbeats-mcp/server.py"
 register "binance-mcp"       "binance-mcp/server.py"
 register "cmc-data"          "cmc-mcp/server.py"
+register "wikipedia-data"    "wikipedia-mcp/server.py"
+
+# ScraplingServer — uses the scrapling CLI, not a repo script
+if [[ -n "$SCRAPLING_BIN" ]]; then
+  claude mcp remove -s user ScraplingServer 2>/dev/null || true
+  claude mcp add -s user ScraplingServer -- "$SCRAPLING_BIN" mcp
+  ok "Registered: ScraplingServer ($SCRAPLING_BIN)"
+else
+  warn "scrapling not found in PATH — ScraplingServer MCP not registered"
+  warn "  Try: uv tool install 'scrapling[all]>=0.4.2' then re-run this script"
+fi
 
 # ── optionally generate Claude Desktop config ─────────────────────────────────
 
@@ -410,7 +427,9 @@ if $DESKTOP_MODE; then
     "news-data":         {"command": "uv", "args": ["run", "$REPO_DIR/news-mcp/server.py"]},
     "blockbeats-mcp":    {"command": "uv", "args": ["run", "$REPO_DIR/blockbeats-mcp/server.py"]},
     "binance-mcp":       {"command": "uv", "args": ["run", "$REPO_DIR/binance-mcp/server.py"]},
-    "cmc-data":          {"command": "uv", "args": ["run", "$REPO_DIR/cmc-mcp/server.py"]}
+    "cmc-data":          {"command": "uv", "args": ["run", "$REPO_DIR/cmc-mcp/server.py"]},
+    "ScraplingServer":   {"command": "${SCRAPLING_BIN:-scrapling}", "args": ["mcp"]},
+    "wikipedia-data":    {"command": "uv", "args": ["run", "$REPO_DIR/wikipedia-mcp/server.py"]}
   }
 }
 JSON
@@ -447,6 +466,8 @@ install_skill "news-mcp"                 "news-mcp/SKILL.md"
 install_skill "blockbeats-skill"         "blockbeats-mcp/SKILL.md"
 install_skill "binance-mcp"              "binance-mcp/SKILL.md"
 install_skill "cmc-mcp"                  "cmc-mcp/SKILL.md"
+install_skill "scrapling"                "scrapling-mcp/SKILL.md"
+install_skill "wikipedia-mcp"            "wikipedia-mcp/SKILL.md"
 
 # ── done ──────────────────────────────────────────────────────────────────────
 
