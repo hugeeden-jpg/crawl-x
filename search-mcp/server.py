@@ -75,34 +75,36 @@ async def search(query: str, num_results: int = 10, language: str = "en") -> str
         return f"Error: failed to fetch Google search results — {e}"
 
     results = []
+    # Use .MjjYud (current Google SERP container class). div.g is no longer used.
     # Iterate all containers without slicing: Google embeds ads/knowledge cards
-    # inside div.g, so the actual count of valid results is unpredictable. Slicing
-    # to fetch_num would defeat the 2x buffer requested via ?num=fetch_num.
-    containers = page.css("div.g")
+    # alongside organic results, so the actual count of valid results is
+    # unpredictable. Slicing would defeat the 2x buffer from ?num=fetch_num.
+    # Note: Scrapling Selector objects use .css() for nested queries (not css_first).
+    containers = page.css(".MjjYud")
 
     for container in containers:
         if len(results) >= num_results:
             break
 
-        h3 = container.css_first("h3")
-        if not h3:
+        h3_list = container.css("h3")
+        if not h3_list:
             continue
-        title = h3.get_all_text(strip=True)
+        title = h3_list[0].get_all_text(strip=True)
         if not title:
             continue
 
-        a = container.css_first("a[href]")
-        if not a:
+        a_list = container.css("a[href]")
+        if not a_list:
             continue
-        href = _clean_href(a.attrib.get("href", ""))
+        href = _clean_href(a_list[0].attrib.get("href", ""))
         if not _is_valid_url(href):
             continue
 
         snippet = ""
         for sel in _SNIPPET_SELECTORS:
-            s = container.css_first(sel)
-            if s:
-                text = s.get_all_text(strip=True)
+            s_list = container.css(sel)
+            if s_list:
+                text = s_list[0].get_all_text(strip=True)
                 if len(text) > 20:
                     snippet = text[:300]
                     break
