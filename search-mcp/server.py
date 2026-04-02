@@ -26,7 +26,6 @@ mcp = FastMCP("search-data")
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 _AD_PATTERNS = ("googleadservices.com", "google.com/aclk", "google.com/search")
-_SNIPPET_SELECTORS = ("div.VwiC3b", "div[data-sncf]", "span[class*='st']", "div[style*='-webkit-line-clamp']")
 
 
 def _clean_href(href: str) -> str:
@@ -40,6 +39,27 @@ def _is_valid_url(href: str) -> bool:
     if not href.startswith("http"):
         return False
     return not any(pat in href for pat in _AD_PATTERNS)
+
+
+def _extract_snippet(node, title: str) -> str:
+    """Walk up ancestors to find a container with description text.
+    Filters out the title, URL breadcrumbs, and short labels (e.g. 'Read more').
+    """
+    for _ in range(8):
+        if node is None:
+            break
+        lines = [l.strip() for l in node.get_all_text(strip=True).splitlines() if l.strip()]
+        snippet_lines = [
+            l for l in lines
+            if l != title
+            and not l.startswith("http")
+            and "›" not in l
+            and len(l) >= 30
+        ]
+        if snippet_lines:
+            return " ".join(snippet_lines)[:300].replace("\xa0", " ")
+        node = node.parent if hasattr(node, "parent") else None
+    return ""
 
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
@@ -74,41 +94,34 @@ async def search(query: str, num_results: int = 10, language: str = "en") -> str
     except Exception as e:
         return f"Error: failed to fetch Google search results — {e}"
 
-    results = []
-    # Use .MjjYud (current Google SERP container class). div.g is no longer used.
-    # Iterate all containers without slicing: Google embeds ads/knowledge cards
-    # alongside organic results, so the actual count of valid results is
-    # unpredictable. Slicing would defeat the 2x buffer from ?num=fetch_num.
-    # Note: Scrapling Selector objects use .css() for nested queries (not css_first).
-    containers = page.css(".MjjYud")
+    # Use stable semantic anchors: #rso (organic results) or #search as fallback.
+    # CSS module class names like .MjjYud are obfuscated and can change at any time.
+    # Within the results root, find all h3 (titles) and walk up ancestors for URL
+    # and snippet — this is resilient to Google's DOM structure changes.
+    rso_list = page.css("#rso") or page.css("#search")
+    if not rso_list:
+        return "Error: could not find results section on page (possible CAPTCHA)"
 
-    for container in containers:
+    results = []
+    for h3 in rso_list[0].css("h3"):
         if len(results) >= num_results:
             break
 
-        h3_list = container.css("h3")
-        if not h3_list:
-            continue
-        title = h3_list[0].get_all_text(strip=True)
-        if not title:
+        title = h3.get_all_text(strip=True)
+        if not title or len(title) < 5:
             continue
 
-        a_list = container.css("a[href]")
-        if not a_list:
-            continue
-        href = _clean_href(a_list[0].attrib.get("href", ""))
+        # Walk up to find the nearest ancestor link
+        href = ""
+        for anc in h3.iterancestors():
+            v = anc.attrib.get("href", "")
+            if v:
+                href = _clean_href(v)
+                break
         if not _is_valid_url(href):
             continue
 
-        snippet = ""
-        for sel in _SNIPPET_SELECTORS:
-            s_list = container.css(sel)
-            if s_list:
-                text = s_list[0].get_all_text(strip=True)
-                if len(text) > 20:
-                    snippet = text[:300]
-                    break
-
+        snippet = _extract_snippet(h3.parent, title)
         results.append({"title": title, "url": href, "snippet": snippet})
 
     if not results:
