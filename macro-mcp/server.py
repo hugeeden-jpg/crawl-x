@@ -474,6 +474,13 @@ def _bls_fetch(series_ids: list, start_year: int, end_year: int) -> dict:
     return result
 
 
+def _safe_float(v) -> float | None:
+    try:
+        return float(v)
+    except (ValueError, TypeError):
+        return None
+
+
 def _period_label(year: str, period: str) -> str:
     month_map = {
         "M01": "Jan", "M02": "Feb", "M03": "Mar", "M04": "Apr",
@@ -522,24 +529,28 @@ def get_cpi(months: int = 24, breakdown: bool = False) -> str:
         for row in headline:
             key = f"{row['year']}-{row['period']}"
             label = _period_label(row["year"], row["period"])
-            val = float(row["value"])
+            val = _safe_float(row["value"])
+            if val is None:
+                continue
             calcs = row.get("calculations", {}).get("pct_changes", {})
-            mom = calcs.get("1", "")
-            yoy = calcs.get("12", "")
-            mom_s = f"{float(mom):>+6.2f}%" if mom else f"{'N/A':>7}"
-            yoy_s = f"{float(yoy):>+6.2f}%" if yoy else f"{'N/A':>7}"
+            mom = _safe_float(calcs.get("1", ""))
+            yoy = _safe_float(calcs.get("12", ""))
+            mom_s = f"{mom:>+6.2f}%" if mom is not None else f"{'N/A':>7}"
+            yoy_s = f"{yoy:>+6.2f}%" if yoy is not None else f"{'N/A':>7}"
             core_row = core.get(key, {})
-            core_val = float(core_row.get("value", 0)) if core_row else 0
+            core_val = _safe_float(core_row.get("value")) if core_row else None
             core_calcs = core_row.get("calculations", {}).get("pct_changes", {}) if core_row else {}
-            core_mom = core_calcs.get("1", "")
-            core_yoy = core_calcs.get("12", "")
-            core_mom_s = f"{float(core_mom):>+9.2f}%" if core_mom else f"{'N/A':>10}"
-            core_yoy_s = f"{float(core_yoy):>+9.2f}%" if core_yoy else f"{'N/A':>10}"
-            line = f"{label:<12} {val:>10.3f} {mom_s:>7} {yoy_s:>7} {core_val:>8.3f} {core_mom_s:>11} {core_yoy_s:>11}"
+            core_mom = _safe_float(core_calcs.get("1", ""))
+            core_yoy = _safe_float(core_calcs.get("12", ""))
+            core_val_s = f"{core_val:>8.3f}" if core_val is not None else f"{'N/A':>8}"
+            core_mom_s = f"{core_mom:>+9.2f}%" if core_mom is not None else f"{'N/A':>10}"
+            core_yoy_s = f"{core_yoy:>+9.2f}%" if core_yoy is not None else f"{'N/A':>10}"
+            line = f"{label:<12} {val:>10.3f} {mom_s:>7} {yoy_s:>7} {core_val_s:>8} {core_mom_s:>11} {core_yoy_s:>11}"
             if breakdown:
                 def get_val(sid, k=key):
                     entry = next((r for r in raw.get(sid, []) if f"{r['year']}-{r['period']}" == k), None)
-                    return f"{float(entry['value']):>8.3f}" if entry else f"{'N/A':>8}"
+                    fv = _safe_float(entry["value"]) if entry else None
+                    return f"{fv:>8.3f}" if fv is not None else f"{'N/A':>8}"
                 line += f" {get_val('CUUR0000SAF1')} {get_val('CUUR0000SA0E')} {get_val('CUUR0000SAH1'):>9} {get_val('CUUR0000SAM'):>9}"
             lines.append(line)
         lines.append("\nNote: Index base = 1982-84 = 100. Core excludes food & energy.")
@@ -568,13 +579,17 @@ def get_ppi(months: int = 18) -> str:
         for row in final:
             key = f"{row['year']}-{row['period']}"
             label = _period_label(row["year"], row["period"])
-            val = float(row["value"])
+            val = _safe_float(row["value"])
+            if val is None:
+                continue
             calcs = row.get("calculations", {}).get("pct_changes", {})
-            mom = calcs.get("1", "")
-            yoy = calcs.get("12", "")
-            mom_s = f"{float(mom):>+6.2f}%" if mom else f"{'N/A':>7}"
-            yoy_s = f"{float(yoy):>+6.2f}%" if yoy else f"{'N/A':>7}"
-            def pick(d, k=key): return f"{float(d[k]['value']):>8.3f}" if k in d else f"{'N/A':>8}"
+            mom = _safe_float(calcs.get("1", ""))
+            yoy = _safe_float(calcs.get("12", ""))
+            mom_s = f"{mom:>+6.2f}%" if mom is not None else f"{'N/A':>7}"
+            yoy_s = f"{yoy:>+6.2f}%" if yoy is not None else f"{'N/A':>7}"
+            def pick(d, k=key):
+                fv = _safe_float(d[k]["value"]) if k in d else None
+                return f"{fv:>8.3f}" if fv is not None else f"{'N/A':>8}"
             lines.append(f"{label:<12} {val:>13.3f} {mom_s:>7} {yoy_s:>7} {pick(core)} {pick(goods)} {pick(svc):>10}")
         lines.append("\nNote: PPI Final Demand measures prices received by domestic producers at first point of sale.")
         return "\n".join(lines)
@@ -606,15 +621,23 @@ def get_jobs_report(months: int = 18) -> str:
         for row in nfp:
             key = f"{row['year']}-{row['period']}"
             label = _period_label(row["year"], row["period"])
-            val = float(row["value"])
-            mom = row.get("calculations", {}).get("net_changes", {}).get("1", "")
-            mom_s = f"{float(mom):>+6.0f}k" if mom else f"{'N/A':>7}"
-            u = f"{float(unemp[key]['value']):>7.1f}%" if key in unemp else f"{'N/A':>8}"
-            w = f"{float(wages[key]['value']):>10.2f}" if key in wages else f"{'N/A':>11}"
-            wc = wages.get(key, {}).get("calculations", {}).get("pct_changes", {}).get("1", "")
-            ws = f"{float(wc):>+6.2f}%" if wc else f"{'N/A':>7}"
-            h = f"{float(hours[key]['value']):>7.1f}" if key in hours else f"{'N/A':>7}"
-            p = f"{float(partic[key]['value']):>7.1f}%" if key in partic else f"{'N/A':>8}"
+            val = _safe_float(row["value"])
+            if val is None:
+                continue
+            mom_raw = row.get("calculations", {}).get("net_changes", {}).get("1", "")
+            mom = _safe_float(mom_raw)
+            mom_s = f"{mom:>+6.0f}k" if mom is not None else f"{'N/A':>7}"
+            uv = _safe_float(unemp[key]["value"]) if key in unemp else None
+            u = f"{uv:>7.1f}%" if uv is not None else f"{'N/A':>8}"
+            wv = _safe_float(wages[key]["value"]) if key in wages else None
+            w = f"{wv:>10.2f}" if wv is not None else f"{'N/A':>11}"
+            wc_raw = wages.get(key, {}).get("calculations", {}).get("pct_changes", {}).get("1", "")
+            wc = _safe_float(wc_raw)
+            ws = f"{wc:>+6.2f}%" if wc is not None else f"{'N/A':>7}"
+            hv = _safe_float(hours[key]["value"]) if key in hours else None
+            h = f"{hv:>7.1f}" if hv is not None else f"{'N/A':>7}"
+            pv = _safe_float(partic[key]["value"]) if key in partic else None
+            p = f"{pv:>7.1f}%" if pv is not None else f"{'N/A':>8}"
             lines.append(f"{label:<12} {val:>9,.0f} {mom_s:>7} {u:>8} {w:>11} {ws:>7} {h:>7} {p:>8}")
         lines.append("\nNote: NFP = net new jobs in thousands. Consensus forecasts usually ±100k.")
         return "\n".join(lines)
@@ -646,10 +669,15 @@ def get_jolts(months: int = 18) -> str:
         for row in openings:
             key = f"{row['year']}-{row['period']}"
             label = _period_label(row["year"], row["period"])
-            o = float(row["value"])
-            h = float(hires[key]["value"]) if key in hires else 0
-            q = float(quits[key]["value"]) if key in quits else 0
-            l = float(layoffs[key]["value"]) if key in layoffs else 0
+            o = _safe_float(row["value"])
+            if o is None:
+                continue
+            h = _safe_float(hires[key]["value"]) if key in hires else None
+            q = _safe_float(quits[key]["value"]) if key in quits else None
+            l = _safe_float(layoffs[key]["value"]) if key in layoffs else None
+            h = h or 0
+            q = q or 0
+            l = l or 0
             ratio = o / h if h > 0 else 0
             lines.append(f"{label:<12} {o:>12,.0f} {h:>10,.0f} {q:>10,.0f} {l:>12,.0f} {ratio:>10.2f}")
         lines.append("\nNote: O/H Ratio > 1 = more openings than hires (tight labor market).")
