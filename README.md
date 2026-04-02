@@ -20,6 +20,7 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `binance-mcp` | `binance-mcp` | Binance futures: funding rates, open interest, long/short ratio, liquidations, basis, top movers, OHLCV | none |
 | `cmc-mcp` | `cmc-data` | CoinMarketCap rankings, quotes, global metrics, categories, trending, Fear & Greed | CMC (optional) |
 | `wikipedia-mcp` | `wikipedia-data` | English Wikipedia: search, summary, full article (cached locally), sections, links, related topics, key facts, coordinates | none |
+| `search-mcp` | `search-data` | Google search: find real URLs by keyword, no API key required | none |
 | *(external)* | `ScraplingServer` | General-purpose web scraping: static/JS/Cloudflare pages, bulk fetch, CSS selector extraction, session management | none |
 
 ---
@@ -49,7 +50,7 @@ The script will:
 - Install Scrapling + Playwright browsers (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
 - Auto-install `yt-dlp` if missing (required by `social-mcp` for YouTube)
 - Prompt for API keys — **press Enter to keep any already-configured value**
-- Register all 13 MCPs to Claude CLI via `claude mcp add` (12 custom + ScraplingServer external)
+- Register all 14 MCPs to Claude CLI via `claude mcp add` (13 custom + ScraplingServer external)
 
 **Agent / CI usage** — skip the interactive key prompts and configure keys afterwards via each MCP's `configure` tool:
 

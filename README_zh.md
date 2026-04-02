@@ -20,6 +20,7 @@
 | `binance-mcp` | `binance-mcp` | Binance 期货：资金费率、持仓量、多空比、爆仓数据、基差、涨跌幅榜、K 线 | 无需 |
 | `cmc-mcp` | `cmc-data` | CoinMarketCap：市值排行、实时报价、全球指标、分类分析、趋势币、恐慌贪婪指数 | CMC（可选） |
 | `wikipedia-mcp` | `wikipedia-data` | 英文维基百科：搜索、摘要、全文（本地缓存）、章节、链接、相关话题、关键事实、地理坐标 | 无需 |
+| `search-mcp` | `search-data` | Google 搜索：通过关键词找到真实 URL，无需 API Key | 无需 |
 | *（外部）* | `ScraplingServer` | 通用网页抓取：静态/JS/Cloudflare 页面、批量抓取、CSS 选择器提取、会话管理 | 无需 |
 
 ---
@@ -49,7 +50,7 @@ bash install.sh
 - 安装 Scrapling + Playwright 浏览器（`scrape-mcp` 抓取 Capitol Trades 和 CME FedWatch 所需）
 - 自动安装 `yt-dlp`（`social-mcp` YouTube 工具所需）
 - 提示输入 API Key — **回车可保留已有值**
-- 通过 `claude mcp add` 注册全部 13 个 MCP 到 Claude CLI（12 个自定义 + ScraplingServer 外部包）
+- 通过 `claude mcp add` 注册全部 14 个 MCP 到 Claude CLI（13 个自定义 + ScraplingServer 外部包）
 
 **Agent / CI 模式** — 跳过交互式 key 提示，安装后通过各 MCP 的 `configure` 工具单独配置：
 

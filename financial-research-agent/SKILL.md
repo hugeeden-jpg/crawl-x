@@ -9,7 +9,7 @@ description: >
 
 # Financial Research Agent
 
-Full-stack financial research via 12 MCP servers.
+Full-stack financial research via 13 MCP servers.
 
 ## MCP Ecosystem Map
 
@@ -27,6 +27,7 @@ Full-stack financial research via 12 MCP servers.
 | `binance-mcp` | Binance FAPI (public) | Futures funding rates, open interest, long/short ratio, liquidations, basis, top movers, OHLCV |
 | `cmc-data` | CoinMarketCap | Crypto rankings, real-time quotes, global metrics, category/sector analysis, trending coins, CMC Fear & Greed |
 | `wikipedia-data` | English Wikipedia | Factual lookups, concept background, company/person profiles, geographic coordinates, article deep-dives (full text cached locally) |
+| `search-data` | Google (Scrapling) | Find real URLs by keyword — use before fetching any unknown page |
 
 ## API Key Configuration
 
@@ -78,7 +79,8 @@ cmc-data:       configure(cmc_api_key="...")
     "news-data":         {"command": "uv", "args": ["run", "/path/to/crawl-x/news-mcp/server.py"]},
     "blockbeats-mcp":    {"command": "uv", "args": ["run", "/path/to/crawl-x/blockbeats-mcp/server.py"]},
     "binance-mcp":       {"command": "uv", "args": ["run", "/path/to/crawl-x/binance-mcp/server.py"]},
-    "cmc-data":          {"command": "uv", "args": ["run", "/path/to/crawl-x/cmc-mcp/server.py"]}
+    "cmc-data":          {"command": "uv", "args": ["run", "/path/to/crawl-x/cmc-mcp/server.py"]},
+    "search-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/search-mcp/server.py"]}
   }
 }
 ```
@@ -110,6 +112,7 @@ cmc-data:       configure(cmc_api_key="...")
 - "Is the crypto market fearful or greedy?" → `sentiment-data` → `get_fear_greed_index`
 - "What are politicians buying/selling?" → `sentiment-data` → `get_congressional_trades` OR `financial-scraper` → `get_congressional_trades`
 - "Show me a chart of congressional trades for X / did politicians trade before the price moved?" → `financial-scraper` → `get_quiverquant_congress(ticker)` — produces interactive HTML chart (opens in browser) + CSV with full history
+- "Find the URL / homepage / docs for X" → `search-data` → `search(query)` — always search first, never guess URLs
 - "What is X trading for? What is Bitcoin doing?" → `crypto-data` → `get_crypto_price`, `get_global_market`
 - "What is DeFi TVL? What is Uniswap's TVL?" → `crypto-data` → `get_defi_tvl_overview`, `get_protocol_tvl`
 - "What are on-chain signals for BTC/ETH?" → `crypto-data` → `get_onchain_metric`, `get_exchange_flows`
@@ -267,6 +270,11 @@ cmc-data:       configure(cmc_api_key="...")
 | `get_contract_oi_data(dataType, limit)` | Derivatives OI: Binance / Bybit / Hyperliquid |
 | `get_sentiment_indicator()` | Market buy/sell/hold sentiment (11 sub-indicators, score 0–100) |
 | `get_top10_netflow(network)` | Top 10 tokens by on-chain net inflow: `solana`/`base`/`ethereum` |
+
+### search-data
+| Tool | Description |
+|------|-------------|
+| `search(query, num_results, language)` | Google search — returns ranked list of title/URL/snippet. No API key. |
 
 ## Workflow Patterns
 
