@@ -91,6 +91,10 @@ cmc-data:       configure(cmc_api_key="...")
 
 ## MCP Decision Tree
 
+**General rule — unknown URLs or web content not covered by any MCP:**
+> 1. **`search-data` → `search(keywords)`** — find real URLs via Google; never guess or hardcode a URL
+> 2. **`ScraplingServer` → `fetch(url)` / `stealthy_fetch(url)`** — read the page content as needed
+
 **Question type → MCP to use:**
 
 - "What is the stock price / market cap / PE ratio of X?" → `market-data` → `get_quote`, `get_stock_info`
@@ -112,7 +116,7 @@ cmc-data:       configure(cmc_api_key="...")
 - "Is the crypto market fearful or greedy?" → `sentiment-data` → `get_fear_greed_index`
 - "What are politicians buying/selling?" → `sentiment-data` → `get_congressional_trades` OR `financial-scraper` → `get_congressional_trades`
 - "Show me a chart of congressional trades for X / did politicians trade before the price moved?" → `financial-scraper` → `get_quiverquant_congress(ticker)` — produces interactive HTML chart (opens in browser) + CSV with full history
-- "Find the URL / homepage / docs for X" → `search-data` → `search(query)` — always search first, never guess URLs
+- "Find the URL / homepage / docs / API endpoint for X" → **`search-data` → `search(query)` FIRST**, then `ScraplingServer` → `fetch/stealthy_fetch(url)` to read the page — never guess URLs
 - "What is X trading for? What is Bitcoin doing?" → `crypto-data` → `get_crypto_price`, `get_global_market`
 - "What is DeFi TVL? What is Uniswap's TVL?" → `crypto-data` → `get_defi_tvl_overview`, `get_protocol_tvl`
 - "What are on-chain signals for BTC/ETH?" → `crypto-data` → `get_onchain_metric`, `get_exchange_flows`

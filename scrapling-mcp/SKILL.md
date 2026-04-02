@@ -10,7 +10,16 @@ description: >
 
 # Scrapling MCP Scraping Guide
 
-## Priority Rule: Always Use Scrapling Instead of WebFetch
+## Priority Rule: Search First, Then Scrape
+
+When the URL is unknown, **always search before scraping**:
+
+1. **`search-data` → `search(keywords)`** — find real URLs via Google
+2. **ScraplingServer → `fetch(url)` / `stealthy_fetch(url)`** — read the page
+
+Never guess or hardcode a URL. If a page might not exist, verify it with `search-data` first.
+
+---
 
 **NEVER use the built-in `WebFetch` tool to fetch web pages.** Always use ScraplingServer MCP tools instead.
 

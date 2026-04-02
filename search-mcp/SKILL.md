@@ -45,6 +45,17 @@ Search results for "scrapling python" (5 results):
    Snippet: A Python library that makes web scraping fast, reliable...
 ```
 
+## Standard Workflow: Search → Fetch
+
+For any information **not covered by existing MCPs**, use this two-step pattern:
+
+```
+1. search-data  → search("keywords")          # find the real URL
+2. ScraplingServer → fetch(url) / stealthy_fetch(url)  # read the page
+```
+
+Use `search-data` first — never guess a URL. Once you have the URL, use ScraplingServer to fetch the actual page content if needed.
+
 ## Notes
 
 - Powered by Scrapling `StealthyFetcher` — handles Google's anti-bot detection
