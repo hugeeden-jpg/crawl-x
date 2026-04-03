@@ -26,7 +26,7 @@ Read-only access to Polymarket prediction markets via the public Gamma API. No A
 
 | Tool | Description |
 |------|-------------|
-| `search_markets(query, category, limit, active_only)` | Search markets by keyword (client-side filter over top 500 by volume); supports category filter |
+| `search_markets(query, category, limit, active_only)` | Search markets by keyword via full-text search (Gamma `/public-search`); `category` used as `events_tag` filter when query provided |
 | `get_market(market_id)` | Full details for a single market — outcomes, odds, all volume periods, description, event info |
 | `get_events(query, category, limit, active_only)` | Event list (each event groups multiple related markets); keyword search + category filter |
 | `get_trending_markets(period, category, limit)` | Top markets ranked by volume; period: `24h` / `7d` / `30d` / `all` |
@@ -84,7 +84,8 @@ Each market displays:
 ## Notes
 
 - Gamma API is public, no authentication needed
-- **Keyword search** is client-side over the top 500 markets/events by volume — very low-volume markets may not appear
-- **Category filtering**: only works reliably for `get_events` (events have `tags[].label`). Market objects don't include category/tag fields, so `category` param has no effect in `search_markets` / `get_trending_markets` — use `get_events(category=...)` instead
+- **Keyword search**: `search_markets(query=...)` and `get_events(query=...)` use the official `/public-search` endpoint — real full-text search across all markets (not just top 500 by volume)
+- **Category filtering**: pass `category` alongside `query` to filter by tag slug (e.g. `"sports"`, `"politics"`, `"crypto"`). Without a query, category uses client-side filtering for `get_events` and has no effect for `search_markets`
+- **Vol 24h / Liquidity** may show `—` for markets returned by keyword search (fields not available in `/public-search` response; use `get_market(id)` for full stats)
 - Odds are displayed as probabilities (0–100%), derived from CLOB order book prices
 - Multi-outcome markets (e.g. "Who wins the World Cup?") show all outcome probabilities

@@ -77,9 +77,12 @@ def _format_market_brief(m: dict, rank: int | None = None, period_field: str | N
     op = _parse_outcomes(m)
     if op:
         lines.append("  Odds:  " + "  |  ".join(f"{o}: {p}" for o, p in op))
-    vol_24h = _fmt_usd(m.get("volume24hr", 0))
+    vol_24h_raw = m.get("volume24hr")
+    vol_24h = _fmt_usd(vol_24h_raw) if vol_24h_raw is not None else "—"
     vol_total = _fmt_usd(m.get("volumeNum", m.get("volume", 0)))
-    lines.append(f"  Vol 24h: {vol_24h}  |  Total: {vol_total}  |  Liquidity: {_fmt_usd(m.get('liquidityNum', m.get('liquidity', 0)))}")
+    liq_raw = m.get("liquidityNum", m.get("liquidity"))
+    liq = _fmt_usd(liq_raw) if liq_raw is not None else "—"
+    lines.append(f"  Vol 24h: {vol_24h}  |  Total: {vol_total}  |  Liquidity: {liq}")
     if period_field and period_field not in ("volume24hr", "volumeNum"):
         lines.append(f"  Vol ({period_field}): {_fmt_usd(m.get(period_field, 0))}")
     lines.append(f"  Status: {_status(m)}  |  Ends: {m.get('endDateIso', m.get('endDate', '—'))[:10]}")
@@ -102,47 +105,49 @@ def search_markets(
     """Search Polymarket prediction markets by keyword, with optional category filter.
 
     Args:
-        query: Search keyword, e.g. "Trump", "Bitcoin", "NBA Finals". Empty returns all.
+        query: Search keyword, e.g. "Trump", "Bitcoin", "NBA Finals". Empty returns top markets by volume.
         category: Filter by category slug, e.g. "politics", "sports", "crypto". Empty = all.
-            Note: Gamma API market objects don't include category/tag fields, so this filter
-            has no effect for markets. Use get_events(category=...) for reliable category filtering.
+            When combined with query, uses the official events_tag filter. Without query, no effect.
         limit: Number of results to return (default 10, max 100).
         active_only: If True, only return active (not closed/resolved) markets.
     """
     try:
         limit = min(int(limit), 100)
-        # Gamma API doesn't support full-text search; fetch a larger batch and filter client-side
-        fetch_limit = 500 if query else limit
-        params: dict = {"limit": fetch_limit, "order": "volume24hr", "ascending": "false"}
-        if active_only:
-            params["active"] = "true"
-            params["closed"] = "false"
 
-        resp = requests.get(f"{BASE_URL}/markets", params=params, timeout=15)
-        resp.raise_for_status()
-        markets = resp.json()
-
-        # Client-side filters (API ignores server-side tag/category params)
         if query:
-            q_lower = query.lower()
-            markets = [
-                m for m in markets
-                if q_lower in m.get("question", "").lower()
-                or q_lower in m.get("description", "").lower()
-                or q_lower in m.get("slug", "").lower()
-            ]
-        if category:
-            cat_lower = category.lower()
-            markets = [
-                m for m in markets
-                if cat_lower in m.get("category", "").lower()
-                or any(
-                    cat_lower in t.get("label", "").lower()
-                    for ev in m.get("events", [])
-                    for t in ev.get("tags", [])
-                )
-            ]
-        markets = markets[:limit]
+            # Use /public-search for real full-text search across all markets
+            params: dict = {
+                "q": query,
+                "limit_per_type": min(limit * 3, 100),  # fetch extra events to extract enough markets
+                "search_tags": "false",
+                "search_profiles": "false",
+            }
+            if category:
+                params["events_tag"] = category
+            if active_only:
+                params["events_status"] = "active"
+
+            resp = requests.get(f"{BASE_URL}/public-search", params=params, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+
+            # Extract markets from events
+            markets = []
+            for ev in data.get("events", []):
+                for m in ev.get("markets", []):
+                    markets.append(m)
+            markets = markets[:limit]
+        else:
+            # No query — return top markets by volume
+            fetch_limit = min(limit, 100)
+            params = {"limit": fetch_limit, "order": "volume24hr", "ascending": "false"}
+            if active_only:
+                params["active"] = "true"
+                params["closed"] = "false"
+
+            resp = requests.get(f"{BASE_URL}/markets", params=params, timeout=15)
+            resp.raise_for_status()
+            markets = resp.json()[:limit]
 
         if not markets:
             return "No markets found."
@@ -223,39 +228,50 @@ def get_events(
     """Get Polymarket events (each event groups multiple related markets).
 
     Args:
-        query: Search keyword, e.g. "election", "World Cup". Empty returns all.
-        category: Filter by category, e.g. "politics", "sports", "crypto". Empty = all.
+        query: Search keyword, e.g. "election", "World Cup". Empty returns top events by volume.
+        category: Filter by category slug, e.g. "politics", "sports", "crypto". Empty = all.
+            When combined with query, uses server-side events_tag filter. Without query, client-side filter.
         limit: Number of events to return (default 10, max 100).
         active_only: If True, only return active (not closed/resolved) events.
     """
     try:
         limit = min(int(limit), 100)
-        fetch_limit = 500 if (query or category) else limit
-        params: dict = {"limit": fetch_limit, "order": "volume24hr", "ascending": "false"}
-        if active_only:
-            params["active"] = "true"
-            params["closed"] = "false"
 
-        resp = requests.get(f"{BASE_URL}/events", params=params, timeout=15)
-        resp.raise_for_status()
-        events = resp.json()
-
-        # Client-side filters (API ignores server-side tag/category params)
         if query:
-            q_lower = query.lower()
-            events = [
-                e for e in events
-                if q_lower in e.get("title", "").lower()
-                or q_lower in e.get("description", "").lower()
-                or q_lower in e.get("slug", "").lower()
-            ]
-        if category:
-            cat_lower = category.lower()
-            events = [
-                e for e in events
-                if any(cat_lower in t.get("label", "").lower() for t in e.get("tags", []))
-            ]
-        events = events[:limit]
+            # Use /public-search for real full-text search
+            params: dict = {
+                "q": query,
+                "limit_per_type": min(limit, 100),
+                "search_tags": "false",
+                "search_profiles": "false",
+            }
+            if category:
+                params["events_tag"] = category
+            if active_only:
+                params["events_status"] = "active"
+
+            resp = requests.get(f"{BASE_URL}/public-search", params=params, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+            events = data.get("events", [])[:limit]
+        else:
+            # No query — return top events by volume (client-side category filter)
+            fetch_limit = 500 if category else limit
+            params = {"limit": fetch_limit, "order": "volume24hr", "ascending": "false"}
+            if active_only:
+                params["active"] = "true"
+                params["closed"] = "false"
+
+            resp = requests.get(f"{BASE_URL}/events", params=params, timeout=15)
+            resp.raise_for_status()
+            events = resp.json()
+            if category:
+                cat_lower = category.lower()
+                events = [
+                    e for e in events
+                    if any(cat_lower in t.get("label", "").lower() for t in e.get("tags", []))
+                ]
+            events = events[:limit]
 
         if not events:
             return "No events found."
