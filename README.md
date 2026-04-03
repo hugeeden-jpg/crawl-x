@@ -288,7 +288,7 @@ Restart Claude Desktop to load the MCPs.
 ### polymarket-mcp
 | Tool | Description |
 |------|-------------|
-| `search_markets(query, category, limit, active_only)` | Search prediction markets by keyword (client-side over top 500 by volume) |
+| `search_markets(query, category, limit, active_only)` | Search prediction markets by keyword via full-text search (`/public-search`); `category` as `events_tag` filter |
 | `get_market(market_id)` | Full market detail: outcomes, odds, all volume periods, description |
 | `get_events(query, category, limit, active_only)` | Event list grouping multiple related markets |
 | `get_trending_markets(period, category, limit)` | Top markets by volume; period: 24h / 7d / 30d / all |
