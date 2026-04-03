@@ -396,6 +396,7 @@ register "binance-mcp"       "binance-mcp/server.py"
 register "cmc-data"          "cmc-mcp/server.py"
 register "wikipedia-data"    "wikipedia-mcp/server.py"
 register "search-data"       "search-mcp/server.py"
+register "polymarket-mcp"    "polymarket-mcp/server.py"
 
 # ScraplingServer — uses the scrapling CLI, not a repo script
 if [[ -n "$SCRAPLING_BIN" ]]; then
@@ -431,7 +432,8 @@ if $DESKTOP_MODE; then
     "cmc-data":          {"command": "uv", "args": ["run", "$REPO_DIR/cmc-mcp/server.py"]},
     "ScraplingServer":   {"command": "${SCRAPLING_BIN:-scrapling}", "args": ["mcp"]},
     "wikipedia-data":    {"command": "uv", "args": ["run", "$REPO_DIR/wikipedia-mcp/server.py"]},
-    "search-data":       {"command": "uv", "args": ["run", "$REPO_DIR/search-mcp/server.py"]}
+    "search-data":       {"command": "uv", "args": ["run", "$REPO_DIR/search-mcp/server.py"]},
+    "polymarket-mcp":    {"command": "uv", "args": ["run", "$REPO_DIR/polymarket-mcp/server.py"]}
   }
 }
 JSON
@@ -471,6 +473,7 @@ install_skill "cmc-mcp"                  "cmc-mcp/SKILL.md"
 install_skill "scrapling"                "scrapling-mcp/SKILL.md"
 install_skill "wikipedia-mcp"            "wikipedia-mcp/SKILL.md"
 install_skill "search-data"              "search-mcp/SKILL.md"
+install_skill "polymarket-mcp"           "polymarket-mcp/SKILL.md"
 
 # ── done ──────────────────────────────────────────────────────────────────────
 

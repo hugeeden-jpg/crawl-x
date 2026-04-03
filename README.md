@@ -21,6 +21,7 @@ A collection of MCP (Model Context Protocol) servers that give Claude real-time 
 | `cmc-mcp` | `cmc-data` | CoinMarketCap rankings, quotes, global metrics, categories, trending, Fear & Greed | CMC (optional) |
 | `wikipedia-mcp` | `wikipedia-data` | English Wikipedia: search, summary, full article (cached locally), sections, links, related topics, key facts, coordinates | none |
 | `search-mcp` | `search-data` | Google search: find real URLs by keyword, no API key required | none |
+| `polymarket-mcp` | `polymarket-mcp` | Polymarket prediction markets: odds/probabilities, volumes, trending markets, events | none |
 | *(external)* | `ScraplingServer` | General-purpose web scraping: static/JS/Cloudflare pages, bulk fetch, CSS selector extraction, session management | none |
 
 ---
@@ -50,7 +51,7 @@ The script will:
 - Install Scrapling + Playwright browsers (required by `scrape-mcp` for Capitol Trades and CME FedWatch)
 - Auto-install `yt-dlp` if missing (required by `social-mcp` for YouTube)
 - Prompt for API keys — **press Enter to keep any already-configured value**
-- Register all 14 MCPs to Claude CLI via `claude mcp add` (13 custom + ScraplingServer external)
+- Register all 15 MCPs to Claude CLI via `claude mcp add` (14 custom + ScraplingServer external)
 
 **Agent / CI usage** — skip the interactive key prompts and configure keys afterwards via each MCP's `configure` tool:
 
@@ -284,6 +285,14 @@ Restart Claude Desktop to load the MCPs.
 | `get_video_transcript(url, lang)` | YouTube captions / transcript | yt-dlp |
 | `search_youtube(query, n)` | YouTube video search | yt-dlp |
 
+### polymarket-mcp
+| Tool | Description |
+|------|-------------|
+| `search_markets(query, category, limit, active_only)` | Search prediction markets by keyword (client-side over top 500 by volume) |
+| `get_market(market_id)` | Full market detail: outcomes, odds, all volume periods, description |
+| `get_events(query, category, limit, active_only)` | Event list grouping multiple related markets |
+| `get_trending_markets(period, category, limit)` | Top markets by volume; period: 24h / 7d / 30d / all |
+
 ---
 
 ## Testing
@@ -330,6 +339,8 @@ crawl-x/
 ├── news-mcp/server.py
 ├── blockbeats-mcp/server.py
 ├── wikipedia-mcp/server.py
+├── search-mcp/server.py
+├── polymarket-mcp/server.py
 ├── scrapling-mcp/                # ScraplingServer skill (external MCP)
 │   └── SKILL.md
 ├── financial-research-agent/     # Master agent skill

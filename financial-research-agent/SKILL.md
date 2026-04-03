@@ -9,7 +9,7 @@ description: >
 
 # Financial Research Agent
 
-Full-stack financial research via 13 MCP servers.
+Full-stack financial research via 14 MCP servers.
 
 ## MCP Ecosystem Map
 
@@ -28,6 +28,7 @@ Full-stack financial research via 13 MCP servers.
 | `cmc-data` | CoinMarketCap | Crypto rankings, real-time quotes, global metrics, category/sector analysis, trending coins, CMC Fear & Greed |
 | `wikipedia-data` | English Wikipedia | Factual lookups, concept background, company/person profiles, geographic coordinates, article deep-dives (full text cached locally) |
 | `search-data` | Google (Scrapling) | Find real URLs by keyword — use before fetching any unknown page |
+| `polymarket-mcp` | Polymarket Gamma API (public) | Prediction market odds, probabilities, volumes, trending markets, events — no key required |
 
 ## API Key Configuration
 
@@ -80,7 +81,8 @@ cmc-data:       configure(cmc_api_key="...")
     "blockbeats-mcp":    {"command": "uv", "args": ["run", "/path/to/crawl-x/blockbeats-mcp/server.py"]},
     "binance-mcp":       {"command": "uv", "args": ["run", "/path/to/crawl-x/binance-mcp/server.py"]},
     "cmc-data":          {"command": "uv", "args": ["run", "/path/to/crawl-x/cmc-mcp/server.py"]},
-    "search-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/search-mcp/server.py"]}
+    "search-data":       {"command": "uv", "args": ["run", "/path/to/crawl-x/search-mcp/server.py"]},
+    "polymarket-mcp":    {"command": "uv", "args": ["run", "/path/to/crawl-x/polymarket-mcp/server.py"]}
   }
 }
 ```
@@ -149,6 +151,10 @@ cmc-data:       configure(cmc_api_key="...")
 - "BlockBeats crypto newsflash / latest crypto news (Chinese source)?" → `blockbeats-mcp` → `get_newsflash`, `get_newsflash_24h`
 - "Search BlockBeats news by keyword?" → `blockbeats-mcp` → `search_news(keyword)`
 - "What are the derived ratios (P/E, ROIC, FCF, margins) for X?" → `market-data` → `get_simfin_financials(ticker, statement="derived")`
+- "What are the odds on [political event / election / sports]? What does the market predict?" → `polymarket-mcp` → `search_markets(query)` or `get_trending_markets`
+- "What's the prediction market probability for X?" → `polymarket-mcp` → `search_markets(query)` → `get_market(market_id)` for full detail
+- "Show me trending prediction markets / what are people betting on?" → `polymarket-mcp` → `get_trending_markets(period="24h")`
+- "Browse prediction market events about crypto / politics / sports?" → `polymarket-mcp` → `get_events(category=...)`
 
 ## Tools Quick Reference
 
@@ -279,6 +285,14 @@ cmc-data:       configure(cmc_api_key="...")
 | Tool | Description |
 |------|-------------|
 | `search(query, num_results, language)` | Google search — returns ranked list of title/URL/snippet. No API key. |
+
+### polymarket-mcp
+| Tool | Description |
+|------|-------------|
+| `search_markets(query, category, limit, active_only)` | Search prediction markets by keyword (client-side over top 500 by volume); category filter |
+| `get_market(market_id)` | Full market detail: outcomes, odds, all volume periods, description, event info |
+| `get_events(query, category, limit, active_only)` | Event list grouping related markets; keyword + category filter |
+| `get_trending_markets(period, category, limit)` | Top markets by volume; period: `24h` / `7d` / `30d` / `all`. No API key. |
 
 ## Workflow Patterns
 

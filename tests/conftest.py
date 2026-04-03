@@ -112,6 +112,11 @@ def search():
     return load_server("search-mcp")
 
 
+@pytest.fixture(scope="session")
+def polymarket():
+    return load_server("polymarket-mcp")
+
+
 # ── rate-limit / transient-error helper ──────────────────────────────────────
 
 _TRANSIENT = ("timeout", "timed out", "connection", "429", "too many requests", "rate limit")
