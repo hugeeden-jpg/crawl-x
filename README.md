@@ -164,7 +164,7 @@ Restart Claude Desktop to load the MCPs.
 | `get_funding_rate` | Current and historical funding rates for a USDT-M futures contract |
 | `get_open_interest` | Open interest history — contracts + USD value |
 | `get_long_short_ratio` | Top trader long/short position ratio |
-| `get_liquidations_summary` | Recent forced liquidations with long/short totals |
+| `get_liquidations_summary` | Taker buy/sell volume ratio — liquidation pressure proxy (raw endpoint removed by Binance) |
 | `get_market_stats` | 24h price stats: price, change, high, low, volume |
 | `get_top_movers` | Top gainers and losers across all USDT-M futures |
 | `get_futures_kline` | OHLCV candlestick data |

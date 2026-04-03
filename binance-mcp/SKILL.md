@@ -31,7 +31,7 @@ Claude Desktop config:
 | `get_funding_rate(symbol, limit)` | Current and historical funding rates (8h periods) |
 | `get_open_interest(symbol, period, limit)` | Open interest history — contracts + USD value |
 | `get_long_short_ratio(symbol, period, limit)` | Top trader long/short position ratio |
-| `get_liquidations_summary(symbol)` | Recent forced liquidations — long/short totals |
+| `get_liquidations_summary(symbol)` | Taker buy/sell volume ratio (1h, 24 bars) — liquidation pressure proxy; Binance removed the public allForceOrders endpoint |
 | `get_market_stats(symbol)` | 24h price stats: price, change, high, low, volume |
 | `get_top_movers(limit)` | Top gainers and losers across all USDT-M futures |
 | `get_futures_kline(symbol, interval, limit)` | OHLCV candlestick data |
@@ -68,7 +68,7 @@ get_top_movers(20) → get_market_stats("BTCUSDT")
 ```
 
 ## Notes
-- Data source: Binance FAPI v1/v2 (USD-M perpetuals)
+- Data source: Binance FAPI v1/v2 + `/futures/data/` statistics endpoints (USD-M perpetuals)
 - `get_long_short_ratio` shows *top trader* account positions, not all traders
 - Funding rate > 0 = longs pay shorts (bullish sentiment); < 0 = shorts pay longs
 - Basis > 0 = futures premium (contango); < 0 = backwardation

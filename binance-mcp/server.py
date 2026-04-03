@@ -22,9 +22,10 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("binance-data")
 
-BASE_SPOT   = "https://api.binance.com/api/v3"
-BASE_FAPI   = "https://fapi.binance.com/fapi/v1"   # USD-M futures
-BASE_FAPI2  = "https://fapi.binance.com/fapi/v2"
+BASE_SPOT      = "https://api.binance.com/api/v3"
+BASE_FAPI      = "https://fapi.binance.com/fapi/v1"   # USD-M futures
+BASE_FAPI2     = "https://fapi.binance.com/fapi/v2"
+BASE_FAPI_DATA = "https://fapi.binance.com/futures/data"  # statistics endpoints
 
 
 def fapi(path: str, params: dict = None) -> dict | list:
@@ -34,6 +35,11 @@ def fapi(path: str, params: dict = None) -> dict | list:
 
 def fapi2(path: str, params: dict = None) -> dict | list:
     r = requests.get(f"{BASE_FAPI2}{path}", params=params, timeout=15)
+    r.raise_for_status()
+    return r.json()
+
+def fapi_data(path: str, params: dict = None) -> dict | list:
+    r = requests.get(f"{BASE_FAPI_DATA}{path}", params=params, timeout=15)
     r.raise_for_status()
     return r.json()
 
@@ -106,7 +112,7 @@ def get_open_interest(symbol: str, period: str = "1d", limit: int = 10) -> str:
     """
     try:
         sym = fmt_symbol(symbol)
-        data = fapi("/openInterestHist", {"symbol": sym, "period": period, "limit": limit})
+        data = fapi_data("/openInterestHist", {"symbol": sym, "period": period, "limit": limit})
         if isinstance(data, dict) and "code" in data:
             return f"API Error: {data.get('msg', data)}"
 
@@ -136,7 +142,7 @@ def get_long_short_ratio(symbol: str, period: str = "1d", limit: int = 10) -> st
     try:
         sym = fmt_symbol(symbol)
         # top trader position ratio
-        data = fapi("/topLongShortPositionRatio", {"symbol": sym, "period": period, "limit": limit})
+        data = fapi_data("/topLongShortPositionRatio", {"symbol": sym, "period": period, "limit": limit})
         if isinstance(data, dict) and "code" in data:
             return f"API Error: {data.get('msg', data)}"
 
@@ -156,35 +162,39 @@ def get_long_short_ratio(symbol: str, period: str = "1d", limit: int = 10) -> st
 
 @mcp.tool()
 def get_liquidations_summary(symbol: str = "BTCUSDT") -> str:
-    """Get recent forced liquidation orders for a Binance futures contract.
+    """Get recent liquidation statistics for a Binance futures contract via the
+    /futures/data/takerlongshortRatio endpoint (public, no key required).
+    Shows taker buy/sell volume ratio as a proxy for liquidation pressure.
+
+    Note: Binance removed the public allForceOrders endpoint. For raw liquidation
+    orders use the WebSocket stream: wss://fstream.binance.com/ws/!forceOrder@arr
 
     Args:
         symbol: Trading pair, e.g. 'BTCUSDT', 'ETHUSDT'
     """
     try:
         sym = fmt_symbol(symbol)
-        data = fapi("/allForceOrders", {"symbol": sym, "limit": 20})
+        # taker long/short volume ratio — best public proxy for liq pressure
+        data = fapi_data("/takerlongshortRatio", {"symbol": sym, "period": "1h", "limit": 24})
         if isinstance(data, dict) and "code" in data:
             return f"API Error: {data.get('msg', data)}"
 
         import datetime
-        lines = [f"Recent Liquidations — {sym}", "=" * 65,
-                 f"{'Time':<22} {'Side':<6} {'Price':>12} {'Qty':>12} {'USD Value':>14}"]
-        total_long = total_short = 0.0
+        lines = [
+            f"Taker Buy/Sell Volume Ratio — {sym} (1h, last 24 bars)",
+            "=" * 60,
+            "Note: allForceOrders endpoint removed by Binance. Showing",
+            "      taker long/short ratio as liquidation pressure proxy.",
+            "",
+            f"{'Timestamp':<22} {'L/S Ratio':>10} {'Buy Vol':>12} {'Sell Vol':>12}",
+            "-" * 58,
+        ]
         for d in data:
-            ts_fmt = datetime.datetime.fromtimestamp(int(d.get("time", 0)) / 1000).strftime("%Y-%m-%d %H:%M")
-            side   = d.get("side", "")
-            price  = float(d.get("averagePrice", d.get("price", 0)))
-            qty    = float(d.get("origQty", 0))
-            value  = price * qty
-            if side == "BUY":   # forced buy = short liquidation
-                total_short += value
-            else:
-                total_long  += value
-            lines.append(f"{ts_fmt:<22} {side:<6} {price:>12,.2f} {qty:>12,.3f} {value/1e3:>13,.1f}K")
-
-        lines += ["", f"  Total LONG  liquidated: ${total_long/1e6:.2f}M",
-                      f"  Total SHORT liquidated: ${total_short/1e6:.2f}M"]
+            ts_fmt = datetime.datetime.fromtimestamp(int(d.get("timestamp", 0)) / 1000).strftime("%Y-%m-%d %H:%M")
+            ratio  = float(d.get("buySellRatio", 0))
+            buy    = float(d.get("buyVol", 0))
+            sell   = float(d.get("sellVol", 0))
+            lines.append(f"{ts_fmt:<22} {ratio:>10.3f} {buy:>12,.1f} {sell:>12,.1f}")
         return "\n".join(lines)
     except Exception as e:
         return f"Error: {e}"
@@ -307,7 +317,7 @@ def get_basis(symbol: str, period: str = "1d", limit: int = 10) -> str:
     """
     try:
         sym = fmt_symbol(symbol)
-        data = fapi("/basis", {"symbol": sym, "contractType": "PERPETUAL", "period": period, "limit": limit})
+        data = fapi_data("/basis", {"pair": sym, "contractType": "PERPETUAL", "period": period, "limit": limit})
         if isinstance(data, dict) and "code" in data:
             return f"API Error: {data.get('msg', data)}"
 
