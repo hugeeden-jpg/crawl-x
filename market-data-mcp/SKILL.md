@@ -80,10 +80,40 @@ get_price_target("NVDA") → get_analyst_recommendations("NVDA")
 get_dividend_calendar("AAPL")
 ```
 
+**期货/商品行情（注意参数名是 ticker，不是 symbol）：**
+```
+get_quote(ticker="GC=F")       # 黄金期货
+get_stock_history(ticker="CL=F", period="3mo")  # 原油期货历史
+```
+
 **Historical analysis:**
 ```
 get_stock_history("SPY", period="1y", interval="1wk")
 ```
+
+## Parameter Reference
+
+所有接受标的代码的工具，参数名统一为 **`ticker`**（不是 `symbol`）。
+
+| 参数 | 说明 | 示例 |
+|------|------|------|
+| `ticker` | 股票/ETF/期货/指数代码 | `"AAPL"`, `"SPY"`, `"GC=F"`, `"^GSPC"` |
+| `period` | 历史数据时间范围 | `"1d"` `"5d"` `"1mo"` `"3mo"` `"6mo"` `"1y"` `"2y"` `"5y"` |
+| `interval` | K线粒度 | `"1m"` `"5m"` `"15m"` `"1h"` `"1d"` `"1wk"` `"1mo"` |
+| `statement` | 财务报表类型 | `"income"` `"balance"` `"cashflow"` |
+| `option_type` | 期权方向 | `"calls"` `"puts"` `"both"` |
+| `timeframe` | 分红日历时间范围 | `"today"` `"tomorrow"` `"thisWeek"` `"nextWeek"` |
+
+**常用期货/商品 ticker（yfinance 格式）：**
+
+| 品种 | ticker |
+|------|--------|
+| 黄金期货 | `GC=F` |
+| 原油期货（WTI） | `CL=F` |
+| 白银期货 | `SI=F` |
+| 纳斯达克期货 | `NQ=F` |
+| 标普500期货 | `ES=F` |
+| 10年期美债期货 | `ZN=F` |
 
 ## Notes
 - yfinance data is 15-min delayed for US markets
